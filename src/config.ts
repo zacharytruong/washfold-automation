@@ -13,8 +13,9 @@ function getEnvVar(key: string, required = true): string {
 
 function getEnvVarAsNumber(key: string, defaultValue: number): number {
   const value = process.env[key]
-  if (!value)
+  if (!value) {
     return defaultValue
+  }
   const parsed = Number.parseInt(value, 10)
   if (Number.isNaN(parsed)) {
     throw new TypeError(`Environment variable ${key} must be a number`)
@@ -49,8 +50,9 @@ let cachedConfig: Config | null = null
  */
 export function getPort(): number {
   const value = process.env.PORT
-  if (!value)
+  if (!value) {
     return 3000
+  }
   const parsed = Number.parseInt(value, 10)
   return Number.isNaN(parsed) ? 3000 : parsed
 }
@@ -63,8 +65,9 @@ export function isDev(): boolean {
 }
 
 export function getConfig(): Config {
-  if (cachedConfig)
+  if (cachedConfig) {
     return cachedConfig
+  }
 
   cachedConfig = {
     // Pancake POS
