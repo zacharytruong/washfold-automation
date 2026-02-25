@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** High
-- **Status:** Pending
+- **Status:** Complete
 - **Description:** Initialize Bun project with Hono, TypeScript, ESLint, and environment configuration
 
 ## Requirements
@@ -72,14 +72,14 @@ bun add -d @antfu/eslint-config typescript @types/bun eslint
 
 ## Todo List
 
-- [ ] Run `bun init -y`
-- [ ] Install dependencies
-- [ ] Create `tsconfig.json`
-- [ ] Create `eslint.config.js`
-- [ ] Create `.env.example`
-- [ ] Create `src/config.ts`
-- [ ] Update `package.json` scripts
-- [ ] Verify `bun run dev` starts without errors
+- [x] Run `bun init -y`
+- [x] Install dependencies
+- [x] Create `tsconfig.json`
+- [x] Create `eslint.config.js`
+- [x] Create `.env.example`
+- [x] Create `src/config.ts`
+- [x] Update `package.json` scripts
+- [x] Verify `bun run dev` starts without errors
 
 ## Success Criteria
 
