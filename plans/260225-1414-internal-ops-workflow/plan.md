@@ -106,8 +106,9 @@ washfold-automation/
 - **Files:** `package.json`, `tsconfig.json`, `eslint.config.js`, `.env.example`, `src/config.ts`
 
 ### Phase 2: Core Services
-- **Status:** Pending
+- **Status:** Complete
 - **Files:** `src/services/*.ts`, `src/utils/*.ts`
+- **Tests:** 31 passing
 
 ### Phase 3: Webhook Endpoints
 - **Status:** Pending
