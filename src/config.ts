@@ -38,6 +38,7 @@ export interface Config {
 
   // Security
   webhookSecret: string
+  logViewerSecret: string
 
   // Server
   port: number
@@ -84,6 +85,7 @@ export function getConfig(): Config {
 
     // Security
     webhookSecret: getEnvVar('WEBHOOK_SECRET'),
+    logViewerSecret: getEnvVar('LOG_VIEWER_SECRET', false),
 
     // Server
     port: getEnvVarAsNumber('PORT', 3000),

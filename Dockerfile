@@ -11,6 +11,9 @@ RUN bun install --frozen-lockfile --production
 # Copy source
 COPY src/ src/
 
+# Create data directory for persistent volume (Railway mounts here)
+RUN mkdir -p /app/data && chown bun:bun /app/data
+
 # Run as non-root user (included in oven/bun image)
 USER bun
 

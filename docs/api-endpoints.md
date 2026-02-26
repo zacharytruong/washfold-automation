@@ -4,18 +4,19 @@
 **Framework:** Hono.js
 **Server Port:** 3000 (configurable via `PORT` env var)
 
-## Current Endpoints (Phase 02)
+## Current Endpoints (Phase 06)
 
 ### 1. Server Status
 **Route:** `GET /`
 **Status:** Implemented
 
 **Response:**
-```
+```json
 200 OK
-Content-Type: text/plain
-
-Hello, World!
+{
+  "status": "ok",
+  "service": "washfold-automation"
+}
 ```
 
 **Use:** Quick check that server is running
@@ -30,8 +31,8 @@ Hello, World!
 ```json
 200 OK
 {
-  "status": "ok",
-  "timestamp": "2026-02-25T18:06:00Z"
+  "status": "healthy",
+  "timestamp": "2026-02-26T14:30:00Z"
 }
 ```
 
@@ -39,12 +40,141 @@ Hello, World!
 
 ---
 
-## Planned Endpoints (Phase 03+)
+## Log Viewer Endpoints (Phase 06)
 
-### Webhook Endpoints
+### Authentication
 
-#### POS Webhook Ingestion
-**Route:** `POST /webhooks/pancake`
+All log viewer endpoints require Bearer token authentication:
+
+```
+Authorization: Bearer {LOG_VIEWER_SECRET}
+```
+
+**Behavior:**
+- **Production:** Returns 403 if `LOG_VIEWER_SECRET` not configured
+- **Development:** Skips auth if `LOG_VIEWER_SECRET` not set
+- **Invalid token:** Returns 401
+
+---
+
+### 1. Recent Logs
+**Route:** `GET /logs/recent?limit=50`
+**Status:** Implemented
+
+**Query Parameters:**
+- `limit` (optional, default: 50) - Fetch up to N most recent logs (clamped 1-500)
+
+**Response (Success):**
+```json
+200 OK
+{
+  "logs": [
+    {
+      "id": 42,
+      "timestamp": "2026-02-26T14:29:00Z",
+      "eventType": "sheets:update",
+      "payload": "{\"orderId\":\"POS-12345\",\"status\":\"Delivered\"}",
+      "status": "success",
+      "error": null
+    },
+    {
+      "id": 41,
+      "timestamp": "2026-02-26T14:28:00Z",
+      "eventType": "botcake:send",
+      "payload": "{\"phone\":\"+84384123456\",\"message\":\"Order shipped\"}",
+      "status": "success",
+      "error": null
+    }
+  ],
+  "count": 2
+}
+```
+
+**Use:** Real-time operational monitoring, troubleshooting recent activity
+
+---
+
+### 2. Error Logs
+**Route:** `GET /logs/errors?limit=50`
+**Status:** Implemented
+
+**Query Parameters:**
+- `limit` (optional, default: 50) - Fetch up to N error logs (clamped 1-500)
+
+**Response (Success):**
+```json
+200 OK
+{
+  "logs": [
+    {
+      "id": 40,
+      "timestamp": "2026-02-26T14:27:00Z",
+      "eventType": "sheets:append",
+      "payload": "{\"orderNumber\":\"ORD-999\"}",
+      "status": "error",
+      "error": "Sheet quota exceeded after 3 retries"
+    }
+  ],
+  "count": 1
+}
+```
+
+**Use:** Debug failures, investigate incidents, retry analysis
+
+---
+
+### 3. Logs by Event Type
+**Route:** `GET /logs/type/:type?limit=50`
+**Status:** Implemented
+
+**Path Parameters:**
+- `type` (required) - Event type filter (e.g., `sheets:update`, `pos:order`, `botcake:send`)
+
+**Query Parameters:**
+- `limit` (optional, default: 50) - Max logs to return (clamped 1-500)
+
+**Response (Success):**
+```json
+200 OK
+{
+  "logs": [
+    {
+      "id": 35,
+      "timestamp": "2026-02-26T14:20:00Z",
+      "eventType": "pos:order",
+      "payload": "{\"orderId\":\"POS-123\",\"status\":11}",
+      "status": "success",
+      "error": null
+    }
+  ],
+  "count": 1
+}
+```
+
+**Response (No Matches):**
+```json
+200 OK
+{
+  "logs": [],
+  "count": 0
+}
+```
+
+**Use:** Component-specific debugging, audit trails, operational dashboards
+
+---
+
+## Webhook Endpoints (Phase 03)
+
+### Authentication
+Webhooks validated via HMAC-SHA256 query parameter (no bearer token needed)
+
+---
+
+## Planned Endpoints (Phase 07+)
+
+### POS Webhook Ingestion
+**Route:** `POST /webhook/pos`
 **Status:** Planned (Phase 03)
 **Authentication:** HMAC-SHA256 signature verification
 

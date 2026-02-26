@@ -27,7 +27,8 @@ let db: Database | null = null
  * Initialize the logger database
  * Creates the logs table if it doesn't exist
  */
-export function initLogger(dbPath = 'logs.db'): void {
+/** Default path: /app/data/logs.db in production (Railway volume), local fallback */
+export function initLogger(dbPath = process.env.DATA_DIR ? `${process.env.DATA_DIR}/logs.db` : 'logs.db'): void {
   db = new Database(dbPath)
 
   db.run(`

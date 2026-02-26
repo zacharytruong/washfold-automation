@@ -44,10 +44,36 @@ washfold-automation synchronizes order data across three platforms:
 **File:** `src/index.ts`
 **Responsibility:** HTTP server initialization, route registration
 
-**Endpoints (Phase 03):**
+**Endpoints (Phase 06):**
+- `GET /` - Root status check (ok)
 - `GET /health` - Health check with timestamp
+- `GET /logs/recent` - Fetch recent logs (auth required, Phase 06)
+- `GET /logs/errors` - Fetch error logs only (auth required, Phase 06)
+- `GET /logs/type/:type` - Fetch logs by event type (auth required, Phase 06)
 - `POST /webhook/pos` - POS order webhook with Zod validation, duplicate prevention, raw payload logging
 - `POST /webhook/appsheet` - AppSheet status update with timing-safe secret comparison
+
+### Layer 1.5: Middleware
+**Directory:** `src/middleware/`
+**Responsibility:** Request/response cross-cutting concerns
+
+#### Log Viewer Auth Middleware
+**File:** `src/middleware/auth-log-viewer.ts`
+
+**Purpose:** Bearer token authentication for log viewer endpoints
+
+| Function | Responsibility |
+|----------|-----------------|
+| `authLogViewer(c, next)` | Validate Bearer token; skip in dev if secret not configured; return 403 in prod if unconfigured |
+
+**Behavior:**
+- **Production + no secret:** 403 error
+- **Development + no secret:** Skip auth (call `next()`)
+- **Missing Bearer header:** 401 error
+- **Invalid token:** 401 error (timing-safe comparison)
+- **Valid token:** Continue to handler
+
+**Token Format:** Plain string (LOG_VIEWER_SECRET environment variable)
 
 ### Layer 2: Services
 **Directory:** `src/services/`
@@ -134,6 +160,22 @@ POS Code → AppSheet Status
 | `isKnownPosStatus(code)` | Check if mapping exists |
 | `getPosStatusName(code)` | Get human-readable name |
 
+#### Log Viewer Routes
+**File:** `src/routes/logs.ts`
+
+**Purpose:** Handler functions for log query endpoints (Phase 06)
+
+| Function | Endpoint | Purpose |
+|----------|----------|---------|
+| `handleRecentLogs(c)` | GET /logs/recent | Return recent logs with limit (clamped 1-500) |
+| `handleErrorLogs(c)` | GET /logs/errors | Return error-status logs only |
+| `handleLogsByType(c)` | GET /logs/type/:type | Return logs filtered by event type |
+
+**Limit Handling:**
+- Default: 50
+- Min: 1, Max: 500
+- Invalid/missing: Falls back to 50
+
 #### Logger
 **File:** `src/utils/logger.ts`
 
@@ -154,9 +196,9 @@ CREATE TABLE logs (
 |----------|---------|
 | `initLogger(dbPath?)` | Create/initialize logs table |
 | `logEvent(input)` | Insert log entry, return ID |
-| `getRecentLogs(limit)` | Fetch recent events |
-| `getLogsByEventType(type, limit)` | Filter by event type |
-| `getErrorLogs(limit)` | Fetch error entries only |
+| `getRecentLogs(limit)` | Fetch recent events (ordered by timestamp DESC) |
+| `getLogsByEventType(type, limit)` | Filter by event type, ordered by timestamp DESC |
+| `getErrorLogs(limit)` | Fetch error entries only, ordered by timestamp DESC |
 | `closeLogger()` | Close database connection |
 
 **Event Types:**
@@ -179,7 +221,23 @@ CREATE TABLE logs (
 | `isDev()` | Check development mode |
 | `validateConfig()` | Fail-fast validation at startup |
 
-**Validation:** Throws error if required variables missing
+**Validation:**
+- Required variables throw error if missing at startup
+- Optional: LOG_VIEWER_SECRET (allows auth-free log viewing in dev mode)
+
+**Config Properties (Phase 06):**
+
+| Property | Required | Purpose |
+|----------|----------|---------|
+| `pancakeApiKey` | Yes | POS API token |
+| `pancakeShopId` | Yes | Shop identifier |
+| `botcakeAccessToken` | Yes | WhatsApp bot token |
+| `botcakePageId` | Yes | Botcake page ID |
+| `googleSheetsId` | Yes | Spreadsheet identifier |
+| `googleServiceAccountJson` | Yes | Google auth JSON |
+| `webhookSecret` | Yes | HMAC secret for webhooks |
+| `logViewerSecret` | No | Bearer token for /logs/* endpoints |
+| `port` | No | Server port (default: 3000) |
 
 ## Data Structures
 
@@ -281,10 +339,10 @@ Example: 1s, 2s, 4s (capped at 10s)
 
 ## Integration Points
 
-### Incoming (Phase 3 - Complete)
+### Incoming (Phase 03-06 - Complete)
 - **POS Webhooks:** `POST /webhook/pos` receives order updates, creates/updates AppSheet entries
 - **AppSheet Webhooks:** `POST /webhook/appsheet` receives status updates, syncs to POS + WhatsApp
-- **Manual Sync:** `POST /api/sync` triggers data synchronization
+- **Log Viewer:** `GET /logs/*` queries SQLite for operational visibility (Phase 06)
 
 ### Outgoing (Current - Phase 02)
 - **Sheets API:** `spreadsheets.values.append()`, `.update()`, `.get()`
@@ -346,15 +404,21 @@ Git Push → Railway detects change
 - **Future:** Mount persistent volume for logs across deployments
 
 ### Environment Configuration
-All sensitive config via Railway environment variables:
+**Required (Phase 02-05):**
 - `PANCAKE_API_KEY` - POS API token
 - `PANCAKE_SHOP_ID` - Shop ID
 - `BOTCAKE_ACCESS_TOKEN` - WhatsApp bot token
 - `BOTCAKE_PAGE_ID` - Botcake page ID
 - `GOOGLE_SHEETS_ID` - Spreadsheet ID
 - `GOOGLE_SERVICE_ACCOUNT_JSON` - Service account JSON
-- `WEBHOOK_SECRET` - HMAC secret
+- `WEBHOOK_SECRET` - HMAC secret for webhook verification
+
+**Optional (Phase 06):**
+- `LOG_VIEWER_SECRET` - Bearer token for log viewer endpoints (auth skipped in dev if not set, 403 in prod)
+
+**Server:**
 - `PORT` - Server port (default: 3000)
+- `NODE_ENV` - 'production' or 'development' (controls auth behavior)
 
 ### Future Considerations
 - Database connection pooling for high volume

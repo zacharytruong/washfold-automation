@@ -5,6 +5,8 @@
 
 import { Hono } from 'hono'
 import { getPort, isDev, validateConfig } from './config.ts'
+import { authLogViewer } from './middleware/auth-log-viewer.ts'
+import { handleErrorLogs, handleLogsByType, handleRecentLogs } from './routes/logs.ts'
 import { handleAppSheetWebhook } from './routes/webhook-appsheet.ts'
 import { handlePosWebhook } from './routes/webhook-pos.ts'
 import { logEvent } from './utils/logger.ts'
@@ -19,6 +21,12 @@ const app = new Hono()
 // Health check
 app.get('/', c => c.json({ status: 'ok', service: 'washfold-automation' }))
 app.get('/health', c => c.json({ status: 'healthy', timestamp: new Date().toISOString() }))
+
+// Log viewer endpoints (auth middleware applied to all /logs/* routes)
+app.use('/logs/*', authLogViewer)
+app.get('/logs/recent', handleRecentLogs)
+app.get('/logs/errors', handleErrorLogs)
+app.get('/logs/type/:type', handleLogsByType)
 
 // Webhook endpoints
 app.post('/webhook/pos', handlePosWebhook)

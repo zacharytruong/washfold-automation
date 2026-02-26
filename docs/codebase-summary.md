@@ -1,8 +1,8 @@
 # Codebase Summary
 
 **Last Updated:** 2026-02-26
-**Phase:** 05 (Deployment)
-**Total LOC:** ~1100 | **Files:** 16 core + 6 test + 4 deployment
+**Phase:** 06 (Log Viewer APIs)
+**Total LOC:** ~1250 | **Files:** 18 core + 7 test + 4 deployment
 
 ## Quick Navigation
 
@@ -15,15 +15,17 @@
 
 ```
 ┌─────────────────────────────────┐
-│   Hono Routes (Phase 3)         │  POST /webhook/pos, POST /webhook/appsheet
+│   Hono Routes (Phase 3, 6)      │  /webhook/*, /logs/*
+├─────────────────────────────────┤
+│   Middleware (Phase 6)           │  Bearer token auth for log viewer
 ├─────────────────────────────────┤
 │   Validation Schemas (Phase 3)   │  Zod schemas for POS & AppSheet payloads
 ├─────────────────────────────────┤
 │   Services Layer (Phase 2)       │  Google Sheets, Pancake POS, Botcake
 ├─────────────────────────────────┤
-│   Utilities (Phase 2-5)          │  Status mapper, Logger, Retry, Timing-safe
+│   Utilities (Phase 2-6)          │  Status mapper, Logger, Retry, Timing-safe
 ├─────────────────────────────────┤
-│   Config & Environment (Phase 1) │  Type-safe configuration
+│   Config & Environment (Phase 6) │  Type-safe configuration + LOG_VIEWER_SECRET
 ├─────────────────────────────────┤
 │   Deployment (Phase 5)           │  Docker, Railway config, build scripts
 └─────────────────────────────────┘
@@ -35,11 +37,17 @@
 - **`src/index.ts`** (85 LOC) - Hono server entry point with route handlers and global error handler
 - **`src/config.ts`** (102 LOC) - Type-safe environment validation with fail-fast semantics
 
-### Routes Layer (Phase 03)
+### Routes Layer (Phase 03-06)
 | Module | Lines | Purpose |
 |--------|-------|---------|
 | `src/routes/webhook-pos.ts` | 78 | POST /webhook/pos handler with Zod validation |
 | `src/routes/webhook-appsheet.ts` | 85 | POST /webhook/appsheet handler with timing-safe auth |
+| `src/routes/logs.ts` | 39 | GET /logs/* handlers (recent, errors, by-type) with limit validation |
+
+### Middleware Layer (Phase 06)
+| Module | Lines | Purpose |
+|--------|-------|---------|
+| `src/middleware/auth-log-viewer.ts` | 35 | Bearer token auth for /logs/* endpoints |
 
 ### Schemas Layer (Phase 03)
 | Module | Lines | Purpose |
@@ -62,7 +70,7 @@
 | `src/utils/logger.ts` | 153 | SQLite event logging with query functions |
 | `src/utils/timing-safe-equal.ts` | 12 | Timing-safe string comparison for webhook auth |
 
-### Tests (Phase 02-05)
+### Tests (Phase 02-06)
 | Module | Tests | Coverage |
 |--------|-------|----------|
 | `src/__tests__/retry.test.ts` | 7 | Retry mechanics, backoff, exhaustion (Phase 4) |
@@ -71,8 +79,9 @@
 | `src/__tests__/botcake.test.ts` | 8 | Phone validation & PSID formatting |
 | `src/__tests__/webhook-pos.test.ts` | 4 | POS webhook validation & payload handling |
 | `src/__tests__/webhook-appsheet.test.ts` | 4 | AppSheet webhook auth & status update |
+| `src/__tests__/logs.test.ts` | 14 | Log viewer endpoints, auth, limit validation (Phase 6) |
 
-**Total Tests:** 46 passing (Phase 2: 31 + Phase 3: 8 + Phase 4: 7)
+**Total Tests:** 60 passing (Phase 2: 31 + Phase 3: 8 + Phase 4: 7 + Phase 6: 14)
 
 ### Deployment Configuration (Phase 05)
 | File | Purpose |
@@ -94,6 +103,7 @@ interface Config {
   googleSheetsId: string
   googleServiceAccountJson: string
   webhookSecret: string
+  logViewerSecret: string  // Optional; empty string if not configured
   port: number
 }
 ```
@@ -179,7 +189,7 @@ posToAppSheet(999) → 'Unknown(999)'  // Unmapped pass-through
 
 ## Environment Variables
 
-**Required (Phase 02):**
+**Required (Phase 02-05):**
 - `PANCAKE_API_KEY` - POS shop API token
 - `PANCAKE_SHOP_ID` - Shop ID for API endpoints
 - `BOTCAKE_ACCESS_TOKEN` - WhatsApp bot access token
@@ -188,7 +198,12 @@ posToAppSheet(999) → 'Unknown(999)'  // Unmapped pass-through
 - `GOOGLE_SERVICE_ACCOUNT_JSON` - Google service account JSON (minified)
 - `WEBHOOK_SECRET` - HMAC secret for webhook verification
 
-**Optional:**
+**Optional (Phase 06):**
+- `LOG_VIEWER_SECRET` - Bearer token for /logs/* endpoints
+  - If not set in dev: auth skipped
+  - If not set in production: returns 403
+
+**Server:**
 - `PORT` (default: 3000) - Server port
 - `NODE_ENV` - 'production' or 'development' (dev by default)
 
@@ -199,9 +214,10 @@ posToAppSheet(999) → 'Unknown(999)'  // Unmapped pass-through
 - **Phase 3 (Complete):** Webhook endpoints (POST /webhook/pos, POST /webhook/appsheet) with Zod validation + timing-safe auth + 8 new tests
 - **Phase 4 (Complete):** Retry utility with exponential backoff + jitter, wrapped all service calls, 7 comprehensive tests
 - **Phase 5 (Complete):** Dockerfile (oven/bun:1.3.4, non-root user), railway.toml (health check, restart policy), .dockerignore
+- **Phase 6 (Complete):** Log viewer GET endpoints (recent, errors, by-type) with bearer token auth, 14 comprehensive tests
 
 ## Next Steps
 
-- **Phase 6:** Monitoring, alerting, and production hardening
-- **Phase 7:** Additional API endpoints (manual sync, event queries, order details)
+- **Phase 7:** Manual sync & order details endpoints (POST /api/sync, GET /api/orders/:id)
 - **Phase 8:** Dashboard & analytics
+- **Phase 9:** Monitoring, alerting, and production hardening
