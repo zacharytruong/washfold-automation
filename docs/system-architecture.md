@@ -1,7 +1,7 @@
 # System Architecture
 
-**Last Updated:** 2026-02-25
-**Current Phase:** 02 (Core Services)
+**Last Updated:** 2026-02-26
+**Current Phase:** 03 (Webhook Endpoints)
 
 ## System Overview
 
@@ -44,13 +44,10 @@ washfold-automation synchronizes order data across three platforms:
 **File:** `src/index.ts`
 **Responsibility:** HTTP server initialization, route registration
 
-**Endpoints (Phase 02):**
-- `GET /` - Server status
-- `GET /health` - Health check
-
-**Endpoints (Phase 03+):**
-- `POST /webhooks/pancake` - POS webhook ingestion
-- `POST /api/sync` - Manual order sync
+**Endpoints (Phase 03):**
+- `GET /health` - Health check with timestamp
+- `POST /webhook/pos` - POS order webhook with Zod validation, duplicate prevention, raw payload logging
+- `POST /webhook/appsheet` - AppSheet status update with timing-safe secret comparison
 
 ### Layer 2: Services
 **Directory:** `src/services/`
@@ -191,10 +188,12 @@ LogEntry {
 
 ## Error Handling Strategy
 
-**Current (Phase 02):**
+**Current (Phase 03):**
 - Try-catch wraps all API calls
-- Errors logged with event payload
-- Errors propagated to caller (or returned as response)
+- Validation errors return HTTP 400 + Zod issue details
+- Service errors logged with event payload and stack trace
+- Global error handler returns 500 for unhandled exceptions
+- All errors logged to SQLite with event type, payload, and error message
 - No retry logic (Phase 4 concern)
 
 **Error Flow:**
@@ -211,10 +210,49 @@ API Call → Catch Error → Log Event (error status)
 - **Config validation** happens once at startup
 - **Service responses** are typed (e.g., `PosOrderUpdateResponse`)
 
+## Webhook Flow (Phase 3)
+
+### POS Webhook: /webhook/pos
+**Trigger:** Pancake POS order status change (e.g., Confirmed)
+
+**Flow:**
+1. POS sends webhook with order data (OrderNumber, Status, CustomerPhone, etc.)
+2. Endpoint logs raw payload before validation
+3. Zod schema validates payload structure
+4. If status = Confirmed (3):
+   - Extract order fields (OrderNumber, Gói dịch vụ, Delivery, Số lượng món, Đồ ướt, CustomerPhone)
+   - Append row to Google Sheets with AppSheet status = "Arrived"
+   - Store CustomerPhone for later WhatsApp lookup
+5. If status = Shipped (11) or Delivered (12):
+   - Find existing AppSheet row by OrderNumber
+   - Update status to "Delivered"
+6. Return 200 OK with event ID
+7. Log event with payload, status, timing
+
+**Security:** No authentication required (POS controls origin)
+
+### AppSheet Webhook: /webhook/appsheet
+**Trigger:** AppSheet status change via automation (e.g., Storage/Ready)
+
+**Flow:**
+1. AppSheet sends webhook with OrderNumber and Status
+2. Endpoint extracts query param secret
+3. Timing-safe comparison with WEBHOOK_SECRET (prevents timing attacks)
+4. Log all status changes (for audit trail, even non-actionable ones)
+5. If status = "Storage / Ready":
+   - Retrieve CustomerPhone from Google Sheets lookup
+   - Update POS order status to "Wait for pickup" (code 9)
+   - Send WhatsApp notification via Botcake with order details
+6. Return 200 OK
+7. Log event with action taken
+
+**Security:** HMAC timing-safe comparison on query param
+
 ## Integration Points
 
-### Incoming (Future - Phase 3)
-- **POS Webhooks:** `POST /webhooks/pancake` receives order updates
+### Incoming (Phase 3 - Complete)
+- **POS Webhooks:** `POST /webhook/pos` receives order updates, creates/updates AppSheet entries
+- **AppSheet Webhooks:** `POST /webhook/appsheet` receives status updates, syncs to POS + WhatsApp
 - **Manual Sync:** `POST /api/sync` triggers data synchronization
 
 ### Outgoing (Current - Phase 02)

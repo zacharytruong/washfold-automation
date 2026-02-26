@@ -1,8 +1,8 @@
 # Codebase Summary
 
-**Last Updated:** 2026-02-25
-**Phase:** 02 (Core Services)
-**Total LOC:** ~550 | **Files:** 10 core + 3 test
+**Last Updated:** 2026-02-26
+**Phase:** 03 (Webhook Endpoints)
+**Total LOC:** ~850 | **Files:** 16 core + 5 test
 
 ## Quick Navigation
 
@@ -15,21 +15,35 @@
 
 ```
 ┌─────────────────────────────────┐
-│   Hono Routes (Phase 3)         │  [Not yet implemented]
+│   Hono Routes (Phase 3)         │  POST /webhook/pos, POST /webhook/appsheet
 ├─────────────────────────────────┤
-│   Services Layer                 │  Google Sheets, Pancake POS, Botcake
+│   Validation Schemas (Phase 3)   │  Zod schemas for POS & AppSheet payloads
 ├─────────────────────────────────┤
-│   Utilities & Mappers            │  Status mapper, Logger
+│   Services Layer (Phase 2)       │  Google Sheets, Pancake POS, Botcake
 ├─────────────────────────────────┤
-│   Config & Environment           │  Type-safe configuration
+│   Utilities (Phase 2-3)          │  Status mapper, Logger, Timing-safe comparison
+├─────────────────────────────────┤
+│   Config & Environment (Phase 1) │  Type-safe configuration
 └─────────────────────────────────┘
 ```
 
 ## Module Inventory
 
 ### Core Application
-- **`src/index.ts`** (26 LOC) - Hono server entry point with `/` and `/health` routes
+- **`src/index.ts`** (85 LOC) - Hono server entry point with route handlers and global error handler
 - **`src/config.ts`** (102 LOC) - Type-safe environment validation with fail-fast semantics
+
+### Routes Layer (Phase 03)
+| Module | Lines | Purpose |
+|--------|-------|---------|
+| `src/routes/webhook-pos.ts` | 78 | POST /webhook/pos handler with Zod validation |
+| `src/routes/webhook-appsheet.ts` | 85 | POST /webhook/appsheet handler with timing-safe auth |
+
+### Schemas Layer (Phase 03)
+| Module | Lines | Purpose |
+|--------|-------|---------|
+| `src/schemas/pos-webhook.schema.ts` | 18 | Zod schema for POS webhook payload validation |
+| `src/schemas/appsheet-webhook.schema.ts` | 14 | Zod schema for AppSheet webhook payload validation |
 
 ### Services Layer (Phase 02)
 | Module | Lines | Purpose |
@@ -38,18 +52,23 @@
 | `src/services/pancake-pos.ts` | 115 | POS API wrapper (update order status, get order) |
 | `src/services/botcake.ts` | 139 | WhatsApp notification via Botcake flows |
 
-### Utilities Layer (Phase 02)
+### Utilities Layer (Phase 02-03)
 | Module | Lines | Purpose |
 |--------|-------|---------|
 | `src/utils/status-mapper.ts` | 94 | Bidirectional POS ↔ AppSheet status conversion |
 | `src/utils/logger.ts` | 153 | SQLite event logging with query functions |
+| `src/utils/timing-safe-equal.ts` | 12 | Timing-safe string comparison for webhook auth |
 
-### Tests (Phase 02)
+### Tests (Phase 02-03)
 | Module | Tests | Coverage |
 |--------|-------|----------|
 | `src/__tests__/status-mapper.test.ts` | 8 | Mapper conversions & edge cases |
 | `src/__tests__/logger.test.ts` | 15 | Logger initialization & queries |
 | `src/__tests__/botcake.test.ts` | 8 | Phone validation & PSID formatting |
+| `src/__tests__/webhook-pos.test.ts` | 4 | POS webhook validation & payload handling |
+| `src/__tests__/webhook-appsheet.test.ts` | 4 | AppSheet webhook auth & status update |
+
+**Total Tests:** 39 passing (Phase 2: 31 + Phase 3: 8)
 
 ## Key Interfaces
 
@@ -161,8 +180,14 @@ posToAppSheet(999) → 'Unknown(999)'  // Unmapped pass-through
 - `PORT` (default: 3000) - Server port
 - `NODE_ENV` - 'production' or 'development' (dev by default)
 
+## Completed Phases
+
+- **Phase 1 (Complete):** Project setup with Bun, Hono, ESLint, TypeScript strict mode
+- **Phase 2 (Complete):** Core services (Google Sheets, Pancake POS, Botcake) + utilities + 31 tests
+- **Phase 3 (Complete):** Webhook endpoints (POST /webhook/pos, POST /webhook/appsheet) with Zod validation + timing-safe auth + 8 new tests
+
 ## Next Steps
 
-- **Phase 3:** Webhook endpoints integration
-- **Phase 4:** Error handling & retry logic
-- **Phase 5:** Deployment & monitoring
+- **Phase 4:** Error handling & retry logic with exponential backoff
+- **Phase 5:** Deployment to Railway with persistent SQLite volume
+- **Phase 6:** Monitoring, alerting, and production hardening

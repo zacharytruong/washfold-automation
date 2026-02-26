@@ -1,3 +1,15 @@
+---
+title: Phase 2 - Core Services
+description: Implement service wrappers for Google Sheets, Pancake POS, Botcake, plus utilities and logger
+status: complete
+priority: high
+effort: medium
+branch: feat/phase-02
+tags: [services, integration, logging, status-mapper]
+created: 2026-02-25
+completed: 2026-02-25
+---
+
 # Phase 2: Core Services
 
 ## Context Links
@@ -40,31 +52,31 @@
 ### 1. Status Mapper (`src/utils/status-mapper.ts`)
 
 ```typescript
-// POS status codes
+// POS status codes (only sync-relevant ones)
 const POS_STATUSES = {
-  NEW: 0,
-  CONFIRMED: 3,
-  PACKAGING: 8,
-  WAITING: 9,
-  SHIPPED: 11,
-  RECEIVED: 12,
-  RETURNED: 20,
+  CONFIRMED: 3,      // Triggers AppSheet entry creation
+  WAIT_FOR_PICKUP: 9, // Set when AppSheet = "Storage / Ready"
+  SHIPPED: 11,       // Triggers AppSheet "Delivered"
+  DELIVERED: 12,     // Triggers AppSheet "Delivered"
 } as const
 
-// AppSheet status strings
+// AppSheet workflow statuses
 const APPSHEET_STATUSES = {
-  PENDING: 'Pending',
-  PROCESSING: 'Processing',
-  DELIVERING: 'Delivering',
+  ARRIVED: 'Arrived',
+  WASHED: 'Washed',
+  DRIED: 'Dried',
+  FOLDED: 'Folded',
+  STORAGE_READY: 'Storage / Ready',  // Triggers POS update
   DELIVERED: 'Delivered',
 } as const
 
-// Mapping functions
-posToAppSheet(posCode: number): string  // Returns original code as string if unmapped
-appSheetToPos(appSheetStatus: string): number | null  // Returns null if unmapped
-isKnownPosStatus(posCode: number): boolean  // Check if status has AppSheet mapping
+// Sync trigger functions (NOT bidirectional mapping)
+shouldCreateAppSheetEntry(posCode: number): boolean  // true if posCode === 3
+shouldUpdatePosStatus(appSheetStatus: string): boolean  // true if "Storage / Ready"
+shouldMarkAppSheetDelivered(posCode: number): boolean  // true if 11 or 12
+getPosWaitForPickupCode(): number  // returns 9
 ```
-<!-- Updated: Validation Session 1 - Handle unmapped statuses gracefully with pass-through -->
+<!-- Updated: Validation Session 2 - New AppSheet statuses and conditional sync logic -->
 
 ### 2. Logger (`src/utils/logger.ts`)
 
@@ -82,11 +94,27 @@ import { Database } from 'bun:sqlite'
 import { google } from 'googleapis'
 
 // Auth via service account JSON
+// Arrival table columns (from POS):
+// OrderNumber, Gói dịch vụ, Delivery, Số lượng món, Đồ ướt, Status
+// Manual columns: Đối tác, PIC
+
+interface ArrivalOrderData {
+  orderNumber: number
+  goiDichVu: 'Tiny 2kg' | '5kg' | 'Giày'
+  delivery: 'Same-day Delivery' | 'Next-day Delivery' | 'No'
+  soLuongMon: number
+  doUot: boolean  // default false
+  status: 'Arrived'  // always Arrived on creation
+  customerPhone: string  // stored for WhatsApp lookup
+}
+
 // Functions:
-appendRow(orderData: OrderData): Promise<void>
-updateStatus(orderId: string, status: string): Promise<void>
-findRowByOrderId(orderId: string): Promise<RowData | null>
+appendArrivalRow(orderData: ArrivalOrderData): Promise<void>
+updateStatus(orderNumber: number, status: string): Promise<void>
+findByOrderNumber(orderNumber: number): Promise<RowData | null>
+getCustomerPhone(orderNumber: number): Promise<string | null>  // For WhatsApp
 ```
+<!-- Updated: Validation Session 2 - New Arrival table columns -->
 
 ### 4. Pancake POS Service (`src/services/pancake-pos.ts`)
 
@@ -115,6 +143,10 @@ sendStatusNotification(phone: string, orderNumber: string, status: string): Prom
 - [x] Create `src/services/botcake.ts`
 - [x] Add type definitions for all interfaces
 - [x] Test each service individually
+- [ ] Add Zod schemas for all service function params in `src/schemas/`
+- [ ] Rewrite `src/config.ts` with Zod z.object() schema
+- [ ] Add safeParse validation to all exported functions
+<!-- Updated: Validation Session 3 - Zod schemas for all service functions + config rewrite -->
 
 ## Success Criteria
 

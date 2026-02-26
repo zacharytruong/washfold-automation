@@ -1,89 +1,74 @@
 import { describe, expect, test } from 'bun:test'
 import {
   APPSHEET_STATUSES,
-  appSheetToPos,
   getAllPosStatusCodes,
   getPosStatusName,
-  isKnownAppSheetStatus,
-  isKnownPosStatus,
+  getPosWaitForPickupCode,
   POS_STATUSES,
-  posToAppSheet,
+  shouldCreateAppSheetEntry,
+  shouldMarkAppSheetDelivered,
+  shouldUpdatePosStatus,
 } from '../utils/status-mapper.ts'
 
 describe('status-mapper', () => {
-  describe('posToAppSheet', () => {
-    test('converts NEW (0) to Pending', () => {
-      expect(posToAppSheet(POS_STATUSES.NEW)).toBe('Pending')
+  describe('shouldCreateAppSheetEntry', () => {
+    test('returns true for Confirmed (3)', () => {
+      expect(shouldCreateAppSheetEntry(POS_STATUSES.CONFIRMED)).toBe(true)
     })
 
-    test('converts CONFIRMED (3) to Processing', () => {
-      expect(posToAppSheet(POS_STATUSES.CONFIRMED)).toBe('Processing')
-    })
-
-    test('converts SHIPPED (11) to Delivering', () => {
-      expect(posToAppSheet(POS_STATUSES.SHIPPED)).toBe('Delivering')
-    })
-
-    test('converts RECEIVED (12) to Delivered', () => {
-      expect(posToAppSheet(POS_STATUSES.RECEIVED)).toBe('Delivered')
-    })
-
-    test('returns Unknown(code) for unmapped statuses', () => {
-      expect(posToAppSheet(POS_STATUSES.PACKAGING)).toBe('Unknown(8)')
-      expect(posToAppSheet(POS_STATUSES.WAITING)).toBe('Unknown(9)')
-      expect(posToAppSheet(POS_STATUSES.RETURNED)).toBe('Unknown(20)')
-      expect(posToAppSheet(999)).toBe('Unknown(999)')
+    test('returns false for other statuses', () => {
+      expect(shouldCreateAppSheetEntry(POS_STATUSES.NEW)).toBe(false)
+      expect(shouldCreateAppSheetEntry(POS_STATUSES.SHIPPED)).toBe(false)
+      expect(shouldCreateAppSheetEntry(POS_STATUSES.RECEIVED)).toBe(false)
+      expect(shouldCreateAppSheetEntry(POS_STATUSES.PACKAGING)).toBe(false)
     })
   })
 
-  describe('appSheetToPos', () => {
-    test('converts Pending to NEW (0)', () => {
-      expect(appSheetToPos(APPSHEET_STATUSES.PENDING)).toBe(0)
+  describe('shouldMarkAppSheetDelivered', () => {
+    test('returns true for Shipped (11)', () => {
+      expect(shouldMarkAppSheetDelivered(POS_STATUSES.SHIPPED)).toBe(true)
     })
 
-    test('converts Processing to CONFIRMED (3)', () => {
-      expect(appSheetToPos(APPSHEET_STATUSES.PROCESSING)).toBe(3)
+    test('returns true for Received (12)', () => {
+      expect(shouldMarkAppSheetDelivered(POS_STATUSES.RECEIVED)).toBe(true)
     })
 
-    test('converts Delivering to SHIPPED (11)', () => {
-      expect(appSheetToPos(APPSHEET_STATUSES.DELIVERING)).toBe(11)
-    })
-
-    test('converts Delivered to RECEIVED (12)', () => {
-      expect(appSheetToPos(APPSHEET_STATUSES.DELIVERED)).toBe(12)
-    })
-
-    test('returns null for unknown statuses', () => {
-      expect(appSheetToPos('InvalidStatus')).toBeNull()
-      expect(appSheetToPos('')).toBeNull()
+    test('returns false for other statuses', () => {
+      expect(shouldMarkAppSheetDelivered(POS_STATUSES.NEW)).toBe(false)
+      expect(shouldMarkAppSheetDelivered(POS_STATUSES.CONFIRMED)).toBe(false)
+      expect(shouldMarkAppSheetDelivered(POS_STATUSES.WAITING)).toBe(false)
     })
   })
 
-  describe('isKnownPosStatus', () => {
-    test('returns true for mapped statuses', () => {
-      expect(isKnownPosStatus(0)).toBe(true)
-      expect(isKnownPosStatus(3)).toBe(true)
-      expect(isKnownPosStatus(11)).toBe(true)
-      expect(isKnownPosStatus(12)).toBe(true)
+  describe('shouldUpdatePosStatus', () => {
+    test('returns true for Storage / Ready', () => {
+      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.STORAGE_READY)).toBe(true)
     })
 
-    test('returns false for unmapped statuses', () => {
-      expect(isKnownPosStatus(8)).toBe(false)
-      expect(isKnownPosStatus(9)).toBe(false)
-      expect(isKnownPosStatus(20)).toBe(false)
+    test('returns false for other AppSheet statuses', () => {
+      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.ARRIVED)).toBe(false)
+      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.WASHED)).toBe(false)
+      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.DRIED)).toBe(false)
+      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.FOLDED)).toBe(false)
+      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.DELIVERED)).toBe(false)
+      expect(shouldUpdatePosStatus('Invalid')).toBe(false)
     })
   })
 
-  describe('isKnownAppSheetStatus', () => {
-    test('returns true for valid statuses', () => {
-      expect(isKnownAppSheetStatus('Pending')).toBe(true)
-      expect(isKnownAppSheetStatus('Processing')).toBe(true)
-      expect(isKnownAppSheetStatus('Delivering')).toBe(true)
-      expect(isKnownAppSheetStatus('Delivered')).toBe(true)
+  describe('getPosWaitForPickupCode', () => {
+    test('returns WAITING status code (9)', () => {
+      expect(getPosWaitForPickupCode()).toBe(9)
     })
+  })
 
-    test('returns false for invalid statuses', () => {
-      expect(isKnownAppSheetStatus('Invalid')).toBe(false)
+  describe('APPSHEET_STATUSES', () => {
+    test('has correct workflow statuses', () => {
+      expect(APPSHEET_STATUSES.ARRIVED).toBe('Arrived')
+      expect(APPSHEET_STATUSES.WASHED).toBe('Washed')
+      expect(APPSHEET_STATUSES.DRIED).toBe('Dried')
+      expect(APPSHEET_STATUSES.FOLDED).toBe('Folded')
+      expect(APPSHEET_STATUSES.STORAGE_READY).toBe('Storage / Ready')
+      expect(APPSHEET_STATUSES.DELIVERED).toBe('Delivered')
     })
   })
 

@@ -1,5 +1,6 @@
 /**
  * Google Sheets API wrapper for order data management
+ * Manages the "Arrival" table used by AppSheet
  * Uses service account authentication
  */
 
@@ -10,27 +11,30 @@ import { logEvent } from '../utils/logger.ts'
 
 export interface OrderData {
   orderNumber: string
-  estimatedDelivery: string
-  deliveryOption: string
-  status: string
+  goiDichVu: string
+  delivery: string
+  soLuongMon: number
+  doUot: boolean
   customerPhone: string
+  status: string
 }
 
 export interface SheetRowData extends OrderData {
   rowIndex: number
 }
 
-// Column mappings (0-indexed)
+// Column mappings for Arrival table (0-indexed)
 const COLUMNS = {
   ORDER_NUMBER: 0,
-  ESTIMATED_DELIVERY: 1,
-  DELIVERY_OPTION: 2,
-  STATUS: 3,
-  CUSTOMER_PHONE: 4,
+  GOI_DICH_VU: 1,
+  DELIVERY: 2,
+  SO_LUONG_MON: 3,
+  DO_UOT: 4,
+  CUSTOMER_PHONE: 5,
+  STATUS: 6,
 } as const
 
-const SHEET_RANGE = 'Sheet1'
-
+const SHEET_RANGE = 'Arrival'
 let sheetsClient: sheets_v4.Sheets | null = null
 
 /**
@@ -54,7 +58,7 @@ function getClient(): sheets_v4.Sheets {
 }
 
 /**
- * Append a new order row to the sheet
+ * Append a new order row to the Arrival sheet
  */
 export async function appendRow(orderData: OrderData): Promise<void> {
   const config = getConfig()
@@ -63,16 +67,18 @@ export async function appendRow(orderData: OrderData): Promise<void> {
   try {
     await client.spreadsheets.values.append({
       spreadsheetId: config.googleSheetsId,
-      range: `${SHEET_RANGE}!A:E`,
+      range: `${SHEET_RANGE}!A:G`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [
           [
             orderData.orderNumber,
-            orderData.estimatedDelivery,
-            orderData.deliveryOption,
-            orderData.status,
+            orderData.goiDichVu,
+            orderData.delivery,
+            orderData.soLuongMon,
+            orderData.doUot ? 'TRUE' : 'FALSE',
             orderData.customerPhone,
+            orderData.status,
           ],
         ],
       },
@@ -97,16 +103,16 @@ export async function appendRow(orderData: OrderData): Promise<void> {
 }
 
 /**
- * Find a row by order ID and return its data
+ * Find a row by order number and return its data
  */
-export async function findRowByOrderId(orderId: string): Promise<SheetRowData | null> {
+export async function findRowByOrderNumber(orderNumber: string): Promise<SheetRowData | null> {
   const config = getConfig()
   const client = getClient()
 
   try {
     const response = await client.spreadsheets.values.get({
       spreadsheetId: config.googleSheetsId,
-      range: `${SHEET_RANGE}!A:E`,
+      range: `${SHEET_RANGE}!A:G`,
     })
 
     const rows = response.data.values
@@ -121,14 +127,16 @@ export async function findRowByOrderId(orderId: string): Promise<SheetRowData | 
         continue
       }
 
-      if (row[COLUMNS.ORDER_NUMBER] === orderId) {
+      if (String(row[COLUMNS.ORDER_NUMBER]) === orderNumber) {
         return {
           rowIndex: i + 1, // 1-indexed for Sheets API
           orderNumber: String(row[COLUMNS.ORDER_NUMBER] ?? ''),
-          estimatedDelivery: String(row[COLUMNS.ESTIMATED_DELIVERY] ?? ''),
-          deliveryOption: String(row[COLUMNS.DELIVERY_OPTION] ?? ''),
-          status: String(row[COLUMNS.STATUS] ?? ''),
+          goiDichVu: String(row[COLUMNS.GOI_DICH_VU] ?? ''),
+          delivery: String(row[COLUMNS.DELIVERY] ?? ''),
+          soLuongMon: Number(row[COLUMNS.SO_LUONG_MON] ?? 0),
+          doUot: String(row[COLUMNS.DO_UOT]).toUpperCase() === 'TRUE',
           customerPhone: String(row[COLUMNS.CUSTOMER_PHONE] ?? ''),
+          status: String(row[COLUMNS.STATUS] ?? ''),
         }
       }
     }
@@ -139,7 +147,7 @@ export async function findRowByOrderId(orderId: string): Promise<SheetRowData | 
     const errorMessage = error instanceof Error ? error.message : String(error)
     logEvent({
       eventType: 'sheets:find',
-      payload: { orderId },
+      payload: { orderNumber },
       status: 'error',
       error: errorMessage,
     })
@@ -148,26 +156,26 @@ export async function findRowByOrderId(orderId: string): Promise<SheetRowData | 
 }
 
 /**
- * Update status for a specific order
+ * Update status for a specific order by order number
  */
-export async function updateStatus(orderId: string, status: string): Promise<boolean> {
+export async function updateStatus(orderNumber: string, status: string): Promise<boolean> {
   const config = getConfig()
   const client = getClient()
 
   try {
-    const row = await findRowByOrderId(orderId)
+    const row = await findRowByOrderNumber(orderNumber)
     if (!row) {
       logEvent({
         eventType: 'sheets:update',
-        payload: { orderId, status },
+        payload: { orderNumber, status },
         status: 'warning',
         error: 'Order not found',
       })
       return false
     }
 
-    // Update only the status column (D)
-    const statusColumn = String.fromCharCode(65 + COLUMNS.STATUS) // 'D'
+    // Update only the status column (G = index 6)
+    const statusColumn = String.fromCharCode(65 + COLUMNS.STATUS)
     await client.spreadsheets.values.update({
       spreadsheetId: config.googleSheetsId,
       range: `${SHEET_RANGE}!${statusColumn}${row.rowIndex}`,
@@ -179,7 +187,7 @@ export async function updateStatus(orderId: string, status: string): Promise<boo
 
     logEvent({
       eventType: 'sheets:update',
-      payload: { orderId, status, rowIndex: row.rowIndex },
+      payload: { orderNumber, status, rowIndex: row.rowIndex },
       status: 'success',
     })
 
@@ -189,7 +197,37 @@ export async function updateStatus(orderId: string, status: string): Promise<boo
     const errorMessage = error instanceof Error ? error.message : String(error)
     logEvent({
       eventType: 'sheets:update',
-      payload: { orderId, status },
+      payload: { orderNumber, status },
+      status: 'error',
+      error: errorMessage,
+    })
+    throw error
+  }
+}
+
+/**
+ * Get customer phone number for a specific order
+ * Used for WhatsApp notifications when AppSheet triggers "Storage / Ready"
+ */
+export async function getCustomerPhone(orderNumber: string): Promise<string | null> {
+  try {
+    const row = await findRowByOrderNumber(orderNumber)
+    if (!row || !row.customerPhone) {
+      logEvent({
+        eventType: 'sheets:getPhone',
+        payload: { orderNumber },
+        status: 'warning',
+        error: 'Customer phone not found',
+      })
+      return null
+    }
+    return row.customerPhone
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logEvent({
+      eventType: 'sheets:getPhone',
+      payload: { orderNumber },
       status: 'error',
       error: errorMessage,
     })

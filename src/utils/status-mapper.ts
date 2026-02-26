@@ -1,6 +1,7 @@
 /**
- * Bidirectional status mapping between Pancake POS and AppSheet
- * Handles unmapped statuses via pass-through with logging capability
+ * Status mapping between Pancake POS and AppSheet
+ * Handles sync triggers: POS→AppSheet on specific events only
+ * AppSheet workflow: Arrived → Washed → Dried → Folded → Storage / Ready → Delivered
  */
 
 // POS status codes from Pancake API
@@ -14,74 +15,48 @@ export const POS_STATUSES = {
   RETURNED: 20,
 } as const
 
-// AppSheet status strings
+// AppSheet workflow statuses (in order)
 export const APPSHEET_STATUSES = {
-  PENDING: 'Pending',
-  PROCESSING: 'Processing',
-  DELIVERING: 'Delivering',
+  ARRIVED: 'Arrived',
+  WASHED: 'Washed',
+  DRIED: 'Dried',
+  FOLDED: 'Folded',
+  STORAGE_READY: 'Storage / Ready',
   DELIVERED: 'Delivered',
 } as const
 
 export type PosStatusCode = (typeof POS_STATUSES)[keyof typeof POS_STATUSES]
 export type AppSheetStatus = (typeof APPSHEET_STATUSES)[keyof typeof APPSHEET_STATUSES]
 
-// Mapping: POS code -> AppSheet status
-const POS_TO_APPSHEET: Record<number, AppSheetStatus> = {
-  [POS_STATUSES.NEW]: APPSHEET_STATUSES.PENDING,
-  [POS_STATUSES.CONFIRMED]: APPSHEET_STATUSES.PROCESSING,
-  [POS_STATUSES.SHIPPED]: APPSHEET_STATUSES.DELIVERING,
-  [POS_STATUSES.RECEIVED]: APPSHEET_STATUSES.DELIVERED,
-}
-
-// Mapping: AppSheet status -> POS code
-const APPSHEET_TO_POS: Record<string, PosStatusCode> = {
-  [APPSHEET_STATUSES.PENDING]: POS_STATUSES.NEW,
-  [APPSHEET_STATUSES.PROCESSING]: POS_STATUSES.CONFIRMED,
-  [APPSHEET_STATUSES.DELIVERING]: POS_STATUSES.SHIPPED,
-  [APPSHEET_STATUSES.DELIVERED]: POS_STATUSES.RECEIVED,
+/**
+ * Check if POS status should create a new AppSheet entry
+ * Only POS Confirmed (3) triggers entry creation with "Arrived" status
+ */
+export function shouldCreateAppSheetEntry(posStatusCode: number): boolean {
+  return posStatusCode === POS_STATUSES.CONFIRMED
 }
 
 /**
- * Convert POS status code to AppSheet status string
- * Returns original code as string if unmapped (pass-through)
+ * Check if POS status should mark AppSheet entry as "Delivered"
+ * Both Shipped (11) and Received/Delivered (12) trigger this
  */
-export function posToAppSheet(posCode: number): string {
-  const mapped = POS_TO_APPSHEET[posCode]
-  if (mapped) {
-    return mapped
-  }
-  // Pass-through unmapped statuses as string representation
-  return `Unknown(${posCode})`
+export function shouldMarkAppSheetDelivered(posStatusCode: number): boolean {
+  return posStatusCode === POS_STATUSES.SHIPPED || posStatusCode === POS_STATUSES.RECEIVED
 }
 
 /**
- * Convert AppSheet status to POS code
- * Returns null if status string is not recognized
+ * Check if AppSheet status should trigger POS update + WhatsApp notification
+ * Only "Storage / Ready" triggers POS update to Wait for pickup (9)
  */
-export function appSheetToPos(appSheetStatus: string): PosStatusCode | null {
-  const mapped = APPSHEET_TO_POS[appSheetStatus]
-  return mapped ?? null
+export function shouldUpdatePosStatus(appSheetStatus: string): boolean {
+  return appSheetStatus === APPSHEET_STATUSES.STORAGE_READY
 }
 
 /**
- * Check if a POS status code has a known AppSheet mapping
+ * Get the POS status code for "Wait for pickup"
  */
-export function isKnownPosStatus(posCode: number): boolean {
-  return posCode in POS_TO_APPSHEET
-}
-
-/**
- * Check if an AppSheet status has a known POS mapping
- */
-export function isKnownAppSheetStatus(status: string): boolean {
-  return status in APPSHEET_TO_POS
-}
-
-/**
- * Get all valid POS status codes
- */
-export function getAllPosStatusCodes(): number[] {
-  return Object.values(POS_STATUSES)
+export function getPosWaitForPickupCode(): number {
+  return POS_STATUSES.WAITING
 }
 
 /**
@@ -90,4 +65,11 @@ export function getAllPosStatusCodes(): number[] {
 export function getPosStatusName(posCode: number): string {
   const entry = Object.entries(POS_STATUSES).find(([, code]) => code === posCode)
   return entry ? entry[0] : `UNKNOWN_${posCode}`
+}
+
+/**
+ * Get all valid POS status codes
+ */
+export function getAllPosStatusCodes(): number[] {
+  return Object.values(POS_STATUSES)
 }

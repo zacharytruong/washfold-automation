@@ -10,17 +10,26 @@ washfold-automation/
 ├── src/
 │   ├── index.ts                 # Hono server entry point
 │   ├── config.ts                # Type-safe environment configuration
+│   ├── routes/                  # HTTP endpoint handlers
+│   │   ├── webhook-pos.ts        # POST /webhook/pos handler
+│   │   └── webhook-appsheet.ts   # POST /webhook/appsheet handler
 │   ├── services/                # External API integrations
 │   │   ├── google-sheets.ts      # Sheets API wrapper
 │   │   ├── pancake-pos.ts        # POS API wrapper
 │   │   └── botcake.ts            # WhatsApp notifications
+│   ├── schemas/                 # Zod runtime validation schemas
+│   │   ├── pos-webhook.schema.ts # POS webhook payload validation
+│   │   └── appsheet-webhook.schema.ts # AppSheet webhook payload validation
 │   ├── utils/                   # Utilities & data transformations
 │   │   ├── status-mapper.ts      # POS ↔ AppSheet status conversion
-│   │   └── logger.ts             # SQLite event logging
+│   │   ├── logger.ts             # SQLite event logging
+│   │   └── timing-safe-equal.ts  # Timing-safe string comparison
 │   └── __tests__/               # Unit tests
 │       ├── status-mapper.test.ts
 │       ├── logger.test.ts
-│       └── botcake.test.ts
+│       ├── botcake.test.ts
+│       ├── webhook-pos.test.ts
+│       └── webhook-appsheet.test.ts
 ├── docs/                        # Documentation (this folder)
 ├── plans/                       # Implementation plans & reports
 ├── tsconfig.json                # TypeScript strict configuration
@@ -161,6 +170,89 @@ export function transform(input: Type): ResultType {
   return result
 }
 ```
+
+## Zod Schema Validation
+
+**Dependency:** `zod` — runtime schema validation with TypeScript type inference.
+
+### Schema Location
+All schemas live in `src/schemas/` directory, one file per domain:
+```
+src/schemas/
+├── config.schema.ts          # Environment variable validation
+├── pos-webhook.schema.ts     # POS webhook payload
+├── appsheet-webhook.schema.ts # AppSheet webhook payload
+├── google-sheets.schema.ts   # Google Sheets function params
+├── pancake-pos.schema.ts     # POS service function params
+└── botcake.schema.ts         # Botcake service function params
+```
+
+### Schema Pattern
+```typescript
+import { z } from 'zod'
+
+// Define schema
+export const orderDataSchema = z.object({
+  orderNumber: z.string().min(1),
+  customerPhone: z.string().min(10),
+  status: z.string(),
+})
+
+// Infer TypeScript type from schema
+export type OrderData = z.infer<typeof orderDataSchema>
+```
+
+### Validation Pattern (safeParse)
+All exported functions with params use `safeParse`:
+```typescript
+import { orderDataSchema } from '../schemas/google-sheets.schema.ts'
+
+export async function appendRow(input: unknown): Promise<void> {
+  const result = orderDataSchema.safeParse(input)
+  if (!result.success) {
+    logEvent({ eventType: 'sheets:append', payload: input, status: 'error', error: result.error.message })
+    throw new Error(`Validation failed: ${result.error.message}`)
+  }
+  const orderData = result.data
+  // ... implementation with validated data
+}
+```
+
+### Webhook Validation Pattern
+Webhooks return HTTP 400 with Zod error details:
+```typescript
+app.post('/webhook/pos', async (c) => {
+  const raw = await c.req.json()
+  logger.logEvent('pos_webhook_raw', { payload: raw })
+
+  const result = posWebhookSchema.safeParse(raw)
+  if (!result.success) {
+    return c.json({ error: 'Invalid payload', issues: result.error.issues }, 400)
+  }
+  // ... handle validated data
+})
+```
+
+### Config Validation Pattern
+```typescript
+import { z } from 'zod'
+
+const configSchema = z.object({
+  pancakeApiKey: z.string().min(1),
+  port: z.coerce.number().default(3000),
+  // ...
+})
+
+export type Config = z.infer<typeof configSchema>
+```
+
+### Rules
+- **Types from schemas:** Infer types with `z.infer<typeof schema>` — don't duplicate interfaces
+- **safeParse over parse:** Always use `safeParse` for graceful error handling
+- **Log before throw:** Log validation errors before throwing/returning
+- **Schema naming:** `{domain}Schema` (e.g., `orderDataSchema`, `posWebhookSchema`)
+
+---
 
 ## Error Handling
 

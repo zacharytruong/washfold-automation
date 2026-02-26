@@ -1,3 +1,15 @@
+---
+title: Phase 3 - Webhook Endpoints
+description: Implement Hono webhook endpoints for POS and AppSheet integrations with Zod validation and security features
+status: complete
+priority: high
+effort: medium
+branch: feat/phase-03
+tags: [webhooks, validation, security, hono, zod]
+created: 2026-02-26
+completed: 2026-02-26
+---
+
 # Phase 3: Webhook Endpoints
 
 ## Context Links
@@ -6,8 +18,10 @@
 
 ## Overview
 - **Priority:** High
-- **Status:** Pending
+- **Status:** Complete
 - **Description:** Implement Hono webhook endpoints for POS and AppSheet integrations
+- **Completed:** 2026-02-26
+- **Test Coverage:** 8 new tests (39 total with Phase 2)
 
 ## Requirements
 
@@ -17,9 +31,11 @@
 - GET /health: Health check for Railway
 
 ### Non-functional
-- Validate webhook payloads
+- Validate webhook payloads using Zod schemas with safeParse
+- Return HTTP 400 + Zod error details on validation failure
 - Return appropriate HTTP status codes
-- Log all events
+- Log all events (including raw payloads before validation)
+<!-- Updated: Validation Session 3 - Zod validation with 400 + error details -->
 
 ## File to Modify
 
@@ -52,26 +68,36 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }))
 ```typescript
 app.post('/webhook/pos', async (c) => {
   // 0. LOG RAW PAYLOAD FIRST (schema not verified yet)
-  // 1. Parse order data from POS webhook (flexible extraction)
-  // 2. Extract: OrderNumber, CustomerPhone, EstimatedDelivery, DeliveryOption, Status
-  // 3. Map POS status → AppSheet status (pass-through if unmapped)
-  // 4. Append row to Google Sheets
-  // 5. Log event with mapping result
-  // 6. Return 200
+  const rawPayload = await c.req.json()
+  logger.logEvent('pos_webhook_raw', { payload: rawPayload })
+
+  // 1. Check if status = Confirmed (3) → Create AppSheet entry
+  if (shouldCreateAppSheetEntry(rawPayload.status)) {
+    // 2. Extract: OrderNumber, Gói dịch vụ, Delivery, Số lượng món, Đồ ướt, CustomerPhone
+    // 3. Append row to Google Sheets with status = "Arrived"
+    // 4. Store CustomerPhone for WhatsApp lookup
+  }
+
+  // 5. Check if status = Shipped (11) or Delivered (12) → Update AppSheet to "Delivered"
+  if (shouldMarkAppSheetDelivered(rawPayload.status)) {
+    // Update existing AppSheet row status to "Delivered"
+  }
+
+  // 6. Log event and return 200
 })
 ```
-<!-- Updated: Validation Session 1 - Log raw payload before parsing, schema unverified -->
-```
+<!-- Updated: Validation Session 2 - Conditional triggers, not all statuses sync -->
 
 Expected POS webhook payload (verify with actual):
 ```json
 {
-  "order_id": "123",
-  "order_number": "WF-001",
+  "order_number": 12345,
   "customer_phone": "+84384123456",
-  "estimated_delivery": "2026-02-26",
-  "delivery_option": "pickup",
-  "status": 0
+  "goi_dich_vu": "5kg",
+  "delivery": "Same-day Delivery",
+  "so_luong_mon": 3,
+  "do_uot": false,
+  "status": 3
 }
 ```
 
@@ -80,21 +106,32 @@ Expected POS webhook payload (verify with actual):
 ```typescript
 app.post('/webhook/appsheet', async (c) => {
   // 1. Verify webhook secret (query param or header)
-  // 2. Parse: OrderNumber, Status, CustomerPhone
-  // 3. Map AppSheet status → POS status code
-  // 4. Update POS order status
-  // 5. Send WhatsApp notification via Botcake
-  // 6. Log event
-  // 7. Return 200
+  // 2. Parse: OrderNumber, Status
+  const { order_number, status } = await c.req.json()
+
+  // 3. LOG ALL STATUS CHANGES (for debugging)
+  logger.logEvent('appsheet_status_change', { order_number, status })
+
+  // 4. ONLY ACT if status = "Storage / Ready"
+  if (shouldUpdatePosStatus(status)) {
+    // 5. Get CustomerPhone from stored POS data
+    const phone = await googleSheets.getCustomerPhone(order_number)
+    // 6. Update POS order status to "Wait for pickup" (code 9)
+    await pancakePos.updateOrderStatus(order_number, getPosWaitForPickupCode())
+    // 7. Send WhatsApp notification via Botcake
+    await botcake.sendStatusNotification(phone, order_number, 'Ready for pickup')
+  }
+
+  // 8. Return 200
 })
 ```
+<!-- Updated: Validation Session 2 - Only "Storage / Ready" triggers POS update + WhatsApp -->
 
 Expected AppSheet webhook payload:
 ```json
 {
-  "order_number": "WF-001",
-  "status": "Processing",
-  "customer_phone": "84384123456"
+  "order_number": 12345,
+  "status": "Storage / Ready"
 }
 ```
 
@@ -120,13 +157,16 @@ export default {
 
 ## Todo List
 
-- [ ] Create `src/index.ts` with Hono app
-- [ ] Implement GET /health
-- [ ] Implement POST /webhook/pos
-- [ ] Implement POST /webhook/appsheet with secret validation
-- [ ] Add error handling middleware
-- [ ] Test endpoints with curl/httpie
-- [ ] Verify logging works
+- [x] Create `src/index.ts` with Hono app
+- [x] Implement GET /health
+- [x] Implement POST /webhook/pos with Zod validation + raw payload logging
+- [x] Implement POST /webhook/appsheet with timing-safe secret comparison
+- [x] Add global error handling middleware
+- [x] Create Zod schemas (pos-webhook.schema.ts, appsheet-webhook.schema.ts)
+- [x] Create timing-safe comparison utility
+- [x] Write comprehensive tests for both endpoints (8 tests)
+- [x] Verify all 39 tests passing
+- [x] Lint clean with ESLint
 
 ## Success Criteria
 

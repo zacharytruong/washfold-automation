@@ -126,10 +126,13 @@ function buildStatusMessage(orderNumber: string, status: string, customerName?: 
   const greeting = customerName ? `Xin chào ${customerName}` : 'Xin chào quý khách'
 
   const statusMessages: Record<string, string> = {
-    Pending: 'đơn hàng của bạn đang chờ xử lý',
-    Processing: 'đơn hàng của bạn đang được xử lý',
-    Delivering: 'đơn hàng của bạn đang được giao',
-    Delivered: 'đơn hàng của bạn đã được giao thành công',
+    'Arrived': 'đơn hàng của bạn đã được tiếp nhận',
+    'Washed': 'đơn hàng của bạn đã được giặt xong',
+    'Dried': 'đơn hàng của bạn đã được sấy xong',
+    'Folded': 'đơn hàng của bạn đã được gấp xong',
+    'Storage / Ready': 'đơn hàng của bạn đã sẵn sàng để lấy',
+    'Ready for pickup': 'đơn hàng của bạn đã sẵn sàng để lấy',
+    'Delivered': 'đơn hàng của bạn đã được giao thành công',
   }
 
   const statusText = statusMessages[status] || `trạng thái đơn hàng: ${status}`
