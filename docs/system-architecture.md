@@ -1,7 +1,7 @@
 # System Architecture
 
 **Last Updated:** 2026-02-26
-**Current Phase:** 03 (Webhook Endpoints)
+**Current Phase:** 05 (Deployment)
 
 ## System Overview
 
@@ -92,7 +92,27 @@ washfold-automation synchronizes order data across three platforms:
 
 ### Layer 3: Utilities
 **Directory:** `src/utils/`
-**Responsibility:** Data transformation, logging, cross-cutting concerns
+**Responsibility:** Data transformation, logging, cross-cutting concerns, transient failure handling
+
+#### Retry Handler (Phase 4)
+**File:** `src/utils/retry.ts`
+
+**Purpose:** Exponential backoff wrapper for all API calls
+
+| Function | Purpose |
+|----------|---------|
+| `withRetry<T>(fn, context, options?)` | Execute async operation with retries |
+
+**Configuration:**
+- Max attempts: 3 (default, configurable)
+- Base delay: 1000ms (configurable)
+- Max delay: 10000ms (configurable)
+- Backoff: Exponential (2^n) + random jitter
+
+**Applied To:**
+- All Google Sheets API calls
+- All Pancake POS API calls
+- All Botcake/WhatsApp API calls
 
 #### Status Mapper
 **File:** `src/utils/status-mapper.ts`
@@ -186,21 +206,32 @@ LogEntry {
 }
 ```
 
-## Error Handling Strategy
+## Error Handling & Retry Strategy (Phase 4)
 
-**Current (Phase 03):**
-- Try-catch wraps all API calls
+**Current Implementation:**
+- All API calls wrapped in `withRetry()` with exponential backoff
 - Validation errors return HTTP 400 + Zod issue details
-- Service errors logged with event payload and stack trace
+- Service errors logged with event payload and error message
+- Each retry attempt logged for debugging
 - Global error handler returns 500 for unhandled exceptions
-- All errors logged to SQLite with event type, payload, and error message
-- No retry logic (Phase 4 concern)
+- All operations (including retries) logged to SQLite
 
-**Error Flow:**
+**Error Flow with Retry:**
 ```
-API Call → Catch Error → Log Event (error status)
+API Call → withRetry wrapper
+  Attempt 1 → Fail → Log retry:attempt → Sleep (1s + jitter)
+  Attempt 2 → Fail → Log retry:attempt → Sleep (2s + jitter)
+  Attempt 3 → Fail/Success
+    - Success → Log success event
+    - Fail → Log retry:exhausted → Throw error
+         → Catch Error → Log Event (error status)
          → Return/Throw to Caller
-         → Caller handles response
+```
+
+**Backoff Calculation:**
+```
+Delay = min(baseDelay * 2^(attempt-1) + random(baseDelay), maxDelay)
+Example: 1s, 2s, 4s (capped at 10s)
 ```
 
 ## Type Safety
@@ -275,15 +306,62 @@ API Call → Catch Error → Log Event (error status)
 - **Logging:** Synchronous writes to SQLite (non-blocking for now)
 - **Service Caching:** Clients initialized once and reused
 
-## Deployment Architecture
+## Deployment Architecture (Phase 5)
 
-**Current:** Single process, all integrations in one service
+### Docker Containerization
+**File:** `Dockerfile`
+- **Base Image:** `oven/bun:1.3.4` (lightweight, includes Bun runtime)
+- **Build Strategy:** Multi-layer with lockfile caching
+  1. Copy `package.json` + `bun.lock`
+  2. Install production dependencies
+  3. Copy source code
+  4. Switch to non-root `bun` user
+- **Health Check:** Bun-based check to `/health` endpoint (no curl dependency)
+- **Port:** 3000 (internal)
 
-**Future Considerations:**
+### Railway Deployment
+**File:** `railway.toml`
+- **Builder:** Dockerfile
+- **Health Check Path:** `/health`
+- **Health Check Timeout:** 300s
+- **Restart Policy:** On failure, max 3 retries
+- **Service Port:** 3000 (internal)
+
+### Docker Build Context
+**File:** `.dockerignore`
+- **Excluded:** `node_modules`, `.env`, test files, documentation
+- **Included:** Source code, dependencies from lockfile
+
+### Deployment Flow
+```
+Git Push → Railway detects change
+        → Build Docker image
+        → Run health check to /health endpoint
+        → Deploy to production
+        → Configure webhook URLs in POS & AppSheet
+```
+
+### Persistent State
+- **Logs Database:** `logs.db` stored in ephemeral filesystem (acceptable for now)
+- **Future:** Mount persistent volume for logs across deployments
+
+### Environment Configuration
+All sensitive config via Railway environment variables:
+- `PANCAKE_API_KEY` - POS API token
+- `PANCAKE_SHOP_ID` - Shop ID
+- `BOTCAKE_ACCESS_TOKEN` - WhatsApp bot token
+- `BOTCAKE_PAGE_ID` - Botcake page ID
+- `GOOGLE_SHEETS_ID` - Spreadsheet ID
+- `GOOGLE_SERVICE_ACCOUNT_JSON` - Service account JSON
+- `WEBHOOK_SECRET` - HMAC secret
+- `PORT` - Server port (default: 3000)
+
+### Future Considerations
 - Database connection pooling for high volume
 - Webhook queue for reliability
 - Separate monitoring dashboard
 - Rate limiting per API
+- Persistent SQLite volume for production logs
 
 ## Related Documentation
 - [Code Standards](./code-standards.md) - Implementation patterns

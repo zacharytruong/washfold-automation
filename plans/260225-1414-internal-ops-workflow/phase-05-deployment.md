@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** Medium
-- **Status:** Pending
+- **Status:** Complete (Dockerfile & railway.toml creation)
 - **Description:** Deploy to Railway with Docker, configure webhooks
 
 ## Requirements
@@ -125,8 +125,8 @@ internalPort = 3000
 
 ## Todo List
 
-- [ ] Create `Dockerfile`
-- [ ] Create `railway.toml`
+- [x] Create `Dockerfile`
+- [x] Create `railway.toml`
 - [ ] Set up Railway project
 - [ ] Configure environment variables
 - [ ] Deploy to Railway

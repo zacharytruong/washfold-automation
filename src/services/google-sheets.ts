@@ -8,6 +8,7 @@ import type { sheets_v4 } from 'googleapis'
 import { google } from 'googleapis'
 import { getConfig } from '../config.ts'
 import { logEvent } from '../utils/logger.ts'
+import { withRetry } from '../utils/retry.ts'
 
 export interface OrderData {
   orderNumber: string
@@ -61,148 +62,161 @@ function getClient(): sheets_v4.Sheets {
  * Append a new order row to the Arrival sheet
  */
 export async function appendRow(orderData: OrderData): Promise<void> {
+  return withRetry(async () => {
+    const config = getConfig()
+    const client = getClient()
+
+    try {
+      await client.spreadsheets.values.append({
+        spreadsheetId: config.googleSheetsId,
+        range: `${SHEET_RANGE}!A:G`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [
+            [
+              orderData.orderNumber,
+              orderData.goiDichVu,
+              orderData.delivery,
+              orderData.soLuongMon,
+              orderData.doUot ? 'TRUE' : 'FALSE',
+              orderData.customerPhone,
+              orderData.status,
+            ],
+          ],
+        },
+      })
+
+      logEvent({
+        eventType: 'sheets:append',
+        payload: { orderNumber: orderData.orderNumber },
+        status: 'success',
+      })
+    }
+    catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logEvent({
+        eventType: 'sheets:append',
+        payload: { orderNumber: orderData.orderNumber },
+        status: 'error',
+        error: errorMessage,
+      })
+      throw error
+    }
+  }, 'sheets:appendRow')
+}
+
+/**
+ * Internal find without retry — used by sibling functions to avoid nested retry amplification
+ */
+async function findRowInternal(orderNumber: string): Promise<SheetRowData | null> {
   const config = getConfig()
   const client = getClient()
 
-  try {
-    await client.spreadsheets.values.append({
-      spreadsheetId: config.googleSheetsId,
-      range: `${SHEET_RANGE}!A:G`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [
-          [
-            orderData.orderNumber,
-            orderData.goiDichVu,
-            orderData.delivery,
-            orderData.soLuongMon,
-            orderData.doUot ? 'TRUE' : 'FALSE',
-            orderData.customerPhone,
-            orderData.status,
-          ],
-        ],
-      },
-    })
+  const response = await client.spreadsheets.values.get({
+    spreadsheetId: config.googleSheetsId,
+    range: `${SHEET_RANGE}!A:G`,
+  })
 
-    logEvent({
-      eventType: 'sheets:append',
-      payload: { orderNumber: orderData.orderNumber },
-      status: 'success',
-    })
+  const rows = response.data.values
+  if (!rows || rows.length === 0) {
+    return null
   }
-  catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logEvent({
-      eventType: 'sheets:append',
-      payload: { orderNumber: orderData.orderNumber },
-      status: 'error',
-      error: errorMessage,
-    })
-    throw error
+
+  // Skip header row (index 0), data starts at index 1
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i]
+    if (!row) {
+      continue
+    }
+
+    if (String(row[COLUMNS.ORDER_NUMBER]) === orderNumber) {
+      return {
+        rowIndex: i + 1, // 1-indexed for Sheets API
+        orderNumber: String(row[COLUMNS.ORDER_NUMBER] ?? ''),
+        goiDichVu: String(row[COLUMNS.GOI_DICH_VU] ?? ''),
+        delivery: String(row[COLUMNS.DELIVERY] ?? ''),
+        soLuongMon: Number(row[COLUMNS.SO_LUONG_MON] ?? 0),
+        doUot: String(row[COLUMNS.DO_UOT]).toUpperCase() === 'TRUE',
+        customerPhone: String(row[COLUMNS.CUSTOMER_PHONE] ?? ''),
+        status: String(row[COLUMNS.STATUS] ?? ''),
+      }
+    }
   }
+
+  return null
 }
 
 /**
  * Find a row by order number and return its data
  */
 export async function findRowByOrderNumber(orderNumber: string): Promise<SheetRowData | null> {
-  const config = getConfig()
-  const client = getClient()
-
-  try {
-    const response = await client.spreadsheets.values.get({
-      spreadsheetId: config.googleSheetsId,
-      range: `${SHEET_RANGE}!A:G`,
-    })
-
-    const rows = response.data.values
-    if (!rows || rows.length === 0) {
-      return null
+  return withRetry(async () => {
+    try {
+      return await findRowInternal(orderNumber)
     }
-
-    // Skip header row (index 0), data starts at index 1
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i]
-      if (!row) {
-        continue
-      }
-
-      if (String(row[COLUMNS.ORDER_NUMBER]) === orderNumber) {
-        return {
-          rowIndex: i + 1, // 1-indexed for Sheets API
-          orderNumber: String(row[COLUMNS.ORDER_NUMBER] ?? ''),
-          goiDichVu: String(row[COLUMNS.GOI_DICH_VU] ?? ''),
-          delivery: String(row[COLUMNS.DELIVERY] ?? ''),
-          soLuongMon: Number(row[COLUMNS.SO_LUONG_MON] ?? 0),
-          doUot: String(row[COLUMNS.DO_UOT]).toUpperCase() === 'TRUE',
-          customerPhone: String(row[COLUMNS.CUSTOMER_PHONE] ?? ''),
-          status: String(row[COLUMNS.STATUS] ?? ''),
-        }
-      }
+    catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logEvent({
+        eventType: 'sheets:find',
+        payload: { orderNumber },
+        status: 'error',
+        error: errorMessage,
+      })
+      throw error
     }
-
-    return null
-  }
-  catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logEvent({
-      eventType: 'sheets:find',
-      payload: { orderNumber },
-      status: 'error',
-      error: errorMessage,
-    })
-    throw error
-  }
+  }, 'sheets:findRowByOrderNumber')
 }
 
 /**
  * Update status for a specific order by order number
  */
 export async function updateStatus(orderNumber: string, status: string): Promise<boolean> {
-  const config = getConfig()
-  const client = getClient()
+  return withRetry(async () => {
+    const config = getConfig()
+    const client = getClient()
 
-  try {
-    const row = await findRowByOrderNumber(orderNumber)
-    if (!row) {
+    try {
+      const row = await findRowInternal(orderNumber)
+      if (!row) {
+        logEvent({
+          eventType: 'sheets:update',
+          payload: { orderNumber, status },
+          status: 'warning',
+          error: 'Order not found',
+        })
+        return false
+      }
+
+      // Update only the status column (G = index 6)
+      const statusColumn = String.fromCharCode(65 + COLUMNS.STATUS)
+      await client.spreadsheets.values.update({
+        spreadsheetId: config.googleSheetsId,
+        range: `${SHEET_RANGE}!${statusColumn}${row.rowIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[status]],
+        },
+      })
+
+      logEvent({
+        eventType: 'sheets:update',
+        payload: { orderNumber, status, rowIndex: row.rowIndex },
+        status: 'success',
+      })
+
+      return true
+    }
+    catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       logEvent({
         eventType: 'sheets:update',
         payload: { orderNumber, status },
-        status: 'warning',
-        error: 'Order not found',
+        status: 'error',
+        error: errorMessage,
       })
-      return false
+      throw error
     }
-
-    // Update only the status column (G = index 6)
-    const statusColumn = String.fromCharCode(65 + COLUMNS.STATUS)
-    await client.spreadsheets.values.update({
-      spreadsheetId: config.googleSheetsId,
-      range: `${SHEET_RANGE}!${statusColumn}${row.rowIndex}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [[status]],
-      },
-    })
-
-    logEvent({
-      eventType: 'sheets:update',
-      payload: { orderNumber, status, rowIndex: row.rowIndex },
-      status: 'success',
-    })
-
-    return true
-  }
-  catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logEvent({
-      eventType: 'sheets:update',
-      payload: { orderNumber, status },
-      status: 'error',
-      error: errorMessage,
-    })
-    throw error
-  }
+  }, 'sheets:updateStatus')
 }
 
 /**
@@ -210,27 +224,29 @@ export async function updateStatus(orderNumber: string, status: string): Promise
  * Used for WhatsApp notifications when AppSheet triggers "Storage / Ready"
  */
 export async function getCustomerPhone(orderNumber: string): Promise<string | null> {
-  try {
-    const row = await findRowByOrderNumber(orderNumber)
-    if (!row || !row.customerPhone) {
+  return withRetry(async () => {
+    try {
+      const row = await findRowInternal(orderNumber)
+      if (!row || !row.customerPhone) {
+        logEvent({
+          eventType: 'sheets:getPhone',
+          payload: { orderNumber },
+          status: 'warning',
+          error: 'Customer phone not found',
+        })
+        return null
+      }
+      return row.customerPhone
+    }
+    catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       logEvent({
         eventType: 'sheets:getPhone',
         payload: { orderNumber },
-        status: 'warning',
-        error: 'Customer phone not found',
+        status: 'error',
+        error: errorMessage,
       })
-      return null
+      throw error
     }
-    return row.customerPhone
-  }
-  catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logEvent({
-      eventType: 'sheets:getPhone',
-      payload: { orderNumber },
-      status: 'error',
-      error: errorMessage,
-    })
-    throw error
-  }
+  }, 'sheets:getCustomerPhone')
 }

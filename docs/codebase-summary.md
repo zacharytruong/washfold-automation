@@ -1,8 +1,8 @@
 # Codebase Summary
 
 **Last Updated:** 2026-02-26
-**Phase:** 03 (Webhook Endpoints)
-**Total LOC:** ~850 | **Files:** 16 core + 5 test
+**Phase:** 05 (Deployment)
+**Total LOC:** ~1100 | **Files:** 16 core + 6 test + 4 deployment
 
 ## Quick Navigation
 
@@ -21,9 +21,11 @@
 ├─────────────────────────────────┤
 │   Services Layer (Phase 2)       │  Google Sheets, Pancake POS, Botcake
 ├─────────────────────────────────┤
-│   Utilities (Phase 2-3)          │  Status mapper, Logger, Timing-safe comparison
+│   Utilities (Phase 2-5)          │  Status mapper, Logger, Retry, Timing-safe
 ├─────────────────────────────────┤
 │   Config & Environment (Phase 1) │  Type-safe configuration
+├─────────────────────────────────┤
+│   Deployment (Phase 5)           │  Docker, Railway config, build scripts
 └─────────────────────────────────┘
 ```
 
@@ -52,23 +54,33 @@
 | `src/services/pancake-pos.ts` | 115 | POS API wrapper (update order status, get order) |
 | `src/services/botcake.ts` | 139 | WhatsApp notification via Botcake flows |
 
-### Utilities Layer (Phase 02-03)
+### Utilities Layer (Phase 02-05)
 | Module | Lines | Purpose |
 |--------|-------|---------|
+| `src/utils/retry.ts` | 68 | Exponential backoff wrapper for transient failures (Phase 4) |
 | `src/utils/status-mapper.ts` | 94 | Bidirectional POS ↔ AppSheet status conversion |
 | `src/utils/logger.ts` | 153 | SQLite event logging with query functions |
 | `src/utils/timing-safe-equal.ts` | 12 | Timing-safe string comparison for webhook auth |
 
-### Tests (Phase 02-03)
+### Tests (Phase 02-05)
 | Module | Tests | Coverage |
 |--------|-------|----------|
+| `src/__tests__/retry.test.ts` | 7 | Retry mechanics, backoff, exhaustion (Phase 4) |
 | `src/__tests__/status-mapper.test.ts` | 8 | Mapper conversions & edge cases |
 | `src/__tests__/logger.test.ts` | 15 | Logger initialization & queries |
 | `src/__tests__/botcake.test.ts` | 8 | Phone validation & PSID formatting |
 | `src/__tests__/webhook-pos.test.ts` | 4 | POS webhook validation & payload handling |
 | `src/__tests__/webhook-appsheet.test.ts` | 4 | AppSheet webhook auth & status update |
 
-**Total Tests:** 39 passing (Phase 2: 31 + Phase 3: 8)
+**Total Tests:** 46 passing (Phase 2: 31 + Phase 3: 8 + Phase 4: 7)
+
+### Deployment Configuration (Phase 05)
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Bun-based container build (oven/bun:1.3.4, non-root user) |
+| `railway.toml` | Railway deployment config (health check, restart policy) |
+| `.dockerignore` | Build context exclusions (tests, docs, .env files) |
+| `package.json` | Scripts: `bun test`, `bun run src/index.ts`, `bun run lint` |
 
 ## Key Interfaces
 
@@ -185,9 +197,11 @@ posToAppSheet(999) → 'Unknown(999)'  // Unmapped pass-through
 - **Phase 1 (Complete):** Project setup with Bun, Hono, ESLint, TypeScript strict mode
 - **Phase 2 (Complete):** Core services (Google Sheets, Pancake POS, Botcake) + utilities + 31 tests
 - **Phase 3 (Complete):** Webhook endpoints (POST /webhook/pos, POST /webhook/appsheet) with Zod validation + timing-safe auth + 8 new tests
+- **Phase 4 (Complete):** Retry utility with exponential backoff + jitter, wrapped all service calls, 7 comprehensive tests
+- **Phase 5 (Complete):** Dockerfile (oven/bun:1.3.4, non-root user), railway.toml (health check, restart policy), .dockerignore
 
 ## Next Steps
 
-- **Phase 4:** Error handling & retry logic with exponential backoff
-- **Phase 5:** Deployment to Railway with persistent SQLite volume
 - **Phase 6:** Monitoring, alerting, and production hardening
+- **Phase 7:** Additional API endpoints (manual sync, event queries, order details)
+- **Phase 8:** Dashboard & analytics

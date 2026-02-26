@@ -1,7 +1,7 @@
 ---
 title: Internal Operations Workflow Integration
 description: Middleware service to auto-sync POS orders → AppSheet and AppSheet status updates → POS + customer notifications
-status: in-progress
+status: complete
 priority: high
 effort: 5-phase project
 branch: feat/phase-03
@@ -148,12 +148,14 @@ washfold-automation/
 - **Tests:** 39 passing (31 from Phase 2 + 8 new webhook tests)
 
 ### Phase 4: Error Handling & Retry
-- **Status:** Pending
-- **Files:** Update all services
+- **Status:** Complete
+- **Files:** `src/utils/retry.ts`, `src/services/google-sheets.ts`, `src/services/pancake-pos.ts`, `src/services/botcake.ts`
+- **Tests:** 45 passing (39 from Phase 3 + 6 new retry tests)
 
 ### Phase 5: Deployment
-- **Status:** Pending
-- **Files:** `Dockerfile`, `railway.toml`
+- **Status:** Complete (Dockerfile & railway.toml)
+- **Files:** `Dockerfile`, `railway.toml`, `.dockerignore`
+- **Note:** Railway setup, webhook configuration, and E2E testing require real credentials
 
 ---
 

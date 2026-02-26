@@ -1,0 +1,13 @@
+node_modules
+.env
+.env.*
+!.env.example
+*.db
+logs.db
+.git
+.gitignore
+plans/
+docs/
+*.md
+src/__tests__/
+.claude/

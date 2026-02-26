@@ -5,6 +5,7 @@
 
 import { getConfig } from '../config.ts'
 import { logEvent } from '../utils/logger.ts'
+import { withRetry } from '../utils/retry.ts'
 
 const BASE_URL = 'https://botcake.io/api/public_api/v1'
 
@@ -60,7 +61,7 @@ export async function sendStatusNotification(
 
   const messageText = buildStatusMessage(orderNumber, status, customerName)
 
-  try {
+  return withRetry(async () => {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -96,6 +97,9 @@ export async function sendStatusNotification(
         status: 'error',
         error: errorMessage,
       })
+      if (response.status >= 500) {
+        throw new Error(errorMessage)
+      }
       return { success: false, message: errorMessage }
     }
 
@@ -106,17 +110,7 @@ export async function sendStatusNotification(
     })
 
     return { success: true }
-  }
-  catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logEvent({
-      eventType: 'botcake:send',
-      payload: { phone, psid, orderNumber, status },
-      status: 'error',
-      error: errorMessage,
-    })
-    return { success: false, message: errorMessage }
-  }
+  }, 'botcake:sendStatusNotification')
 }
 
 /**

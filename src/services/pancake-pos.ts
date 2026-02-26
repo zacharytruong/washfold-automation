@@ -5,6 +5,7 @@
 
 import { getConfig } from '../config.ts'
 import { logEvent } from '../utils/logger.ts'
+import { withRetry } from '../utils/retry.ts'
 
 const BASE_URL = 'https://pos.pages.fm/api/v1'
 
@@ -20,10 +21,10 @@ export async function updateOrderStatus(
   orderId: string,
   statusCode: number,
 ): Promise<PosOrderUpdateResponse> {
-  const config = getConfig()
-  const url = `${BASE_URL}/shops/${config.pancakeShopId}/orders/${orderId}`
+  return withRetry(async () => {
+    const config = getConfig()
+    const url = `${BASE_URL}/shops/${config.pancakeShopId}/orders/${orderId}`
 
-  try {
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
@@ -43,6 +44,10 @@ export async function updateOrderStatus(
         status: 'error',
         error: errorMessage,
       })
+      // Throw on server errors so retry kicks in; return failure for client errors
+      if (response.status >= 500) {
+        throw new Error(errorMessage)
+      }
       return { success: false, message: errorMessage }
     }
 
@@ -53,27 +58,17 @@ export async function updateOrderStatus(
     })
 
     return { success: true }
-  }
-  catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logEvent({
-      eventType: 'pos:update',
-      payload: { orderId, statusCode },
-      status: 'error',
-      error: errorMessage,
-    })
-    return { success: false, message: errorMessage }
-  }
+  }, 'pos:updateOrderStatus')
 }
 
 /**
  * Get order details from Pancake POS
  */
 export async function getOrder(orderId: string): Promise<unknown | null> {
-  const config = getConfig()
-  const url = `${BASE_URL}/shops/${config.pancakeShopId}/orders/${orderId}`
+  return withRetry(async () => {
+    const config = getConfig()
+    const url = `${BASE_URL}/shops/${config.pancakeShopId}/orders/${orderId}`
 
-  try {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -88,6 +83,9 @@ export async function getOrder(orderId: string): Promise<unknown | null> {
         status: 'error',
         error: `HTTP ${response.status}`,
       })
+      if (response.status >= 500) {
+        throw new Error(`HTTP ${response.status}`)
+      }
       return null
     }
 
@@ -100,15 +98,5 @@ export async function getOrder(orderId: string): Promise<unknown | null> {
     })
 
     return data
-  }
-  catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logEvent({
-      eventType: 'pos:get',
-      payload: { orderId },
-      status: 'error',
-      error: errorMessage,
-    })
-    return null
-  }
+  }, 'pos:getOrder')
 }

@@ -254,40 +254,66 @@ export type Config = z.infer<typeof configSchema>
 
 ---
 
-## Error Handling
+## Error Handling & Retry Logic
 
-### All API Calls Must Be Wrapped
+### All API Calls Must Use withRetry (Phase 4)
+All service calls wrap operations in retry logic with exponential backoff:
+
 ```typescript
-try {
+import { withRetry } from '../utils/retry.ts'
+
+// Automatically retries with exponential backoff
+return withRetry(async () => {
   const response = await fetch(url, { method: 'PUT', ... })
   logEvent({ eventType, payload, status: 'success' })
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error)
-  logEvent({ eventType, payload, status: 'error', error: message })
-  throw error  // Or return error response, depending on context
-}
+  return response
+}, 'sheets:update')  // context for logging
 ```
 
+### Retry Behavior
+- **Max attempts:** 3 (configurable)
+- **Base delay:** 1000ms (configurable)
+- **Max delay:** 10000ms (configurable)
+- **Backoff formula:** `baseDelay * 2^(attempt-1) + jitter`
+- **Jitter:** Random value up to baseDelayMs (prevents thundering herd)
+- **Logging:** Each attempt logged as `retry:attempt`, exhaustion as `retry:exhausted`
+
+### Configuration Example
+```typescript
+// Use custom retry options
+return withRetry(
+  async () => { /* operation */ },
+  'critical:operation',
+  { maxAttempts: 5, baseDelayMs: 500, maxDelayMs: 15000 }
+)
+```
+
+### When Retry is Applied
+All service functions are wrapped:
+- `google-sheets.ts`: All API calls (append, update, find)
+- `pancake-pos.ts`: All API calls (update status, get order)
+- `botcake.ts`: All API calls (send notification)
+
 ### Error Messages Are Logged
-Every error must be logged with context:
-- `eventType` - what operation (e.g., `sheets:update`, `pos:get`)
+Every error is logged with context:
+- `eventType` - component:action format (e.g., `sheets:update`, `pos:get`)
 - `payload` - input data (e.g., orderId, parameters)
 - `error` - human-readable message
-- `status: 'error'`
+- `status` - 'success', 'error', or 'warning'
 
 ### Return Types Indicate Success/Failure
 ```typescript
-// Option 1: Response object with success flag
+// Option 1: Throw on error (with retry wrapper)
+async function updateOrder(id: string): Promise<void>
+
+// Option 2: Return null on not found
+async function findOrder(id: string): Promise<Order | null>
+
+// Option 3: Response object with success flag
 interface ApiResponse {
   success: boolean
   message?: string
 }
-
-// Option 2: Throw on error
-async function updateOrder(id: string): Promise<void>
-
-// Option 3: Return null on not found
-async function findOrder(id: string): Promise<Order | null>
 ```
 
 ## Logging Strategy
@@ -504,6 +530,39 @@ Example:
 ```
 feat(services): add google-sheets wrapper with CRUD operations
 ```
+
+## Retry Pattern (Phase 4)
+
+### Module: src/utils/retry.ts
+
+**Purpose:** Wraps async operations with exponential backoff for transient failures
+
+**Key Exports:**
+```typescript
+export interface RetryOptions {
+  maxAttempts: number      // Default: 3
+  baseDelayMs: number      // Default: 1000
+  maxDelayMs: number       // Default: 10000
+}
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  context: string,
+  options?: Partial<RetryOptions>
+): Promise<T>
+```
+
+**Usage:** All service calls use this pattern:
+```typescript
+return withRetry(async () => {
+  // Async operation here
+  return result
+}, 'service:action', options)
+```
+
+**Logging Events:**
+- `retry:attempt` (warning) - Logged before each retry delay
+- `retry:exhausted` (error) - Logged when all attempts fail
 
 ## Related Documentation
 - [System Architecture](./system-architecture.md) - Component design
