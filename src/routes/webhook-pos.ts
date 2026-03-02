@@ -8,12 +8,12 @@
  */
 
 import type { Context } from 'hono'
-import { getConfig } from '../config.ts'
-import { posWebhookSchema } from '../schemas/pos-webhook.schema.ts'
-import { appendRow, findRowByOrderNumber, updateStatus } from '../services/google-sheets.ts'
-import { logEvent } from '../utils/logger.ts'
-import { APPSHEET_STATUSES, shouldCreateAppSheetEntry, shouldMarkAppSheetDelivered } from '../utils/status-mapper.ts'
-import { timingSafeEqual } from '../utils/timing-safe-equal.ts'
+import { getConfig } from '@/config.ts'
+import { posWebhookSchema } from '@/schemas/pos-webhook.schema.ts'
+import { appendRow, findRowByOrderNumber, updateStatus } from '@/services/google-sheets.ts'
+import { logEvent } from '@/utils/logger.ts'
+import { APPSHEET_STATUSES, shouldCreateAppSheetEntry, shouldMarkAppSheetDelivered } from '@/utils/status-mapper.ts'
+import { timingSafeEqual } from '@/utils/timing-safe-equal.ts'
 
 export async function handlePosWebhook(c: Context): Promise<Response> {
   // Verify webhook secret (same auth pattern as AppSheet webhook)

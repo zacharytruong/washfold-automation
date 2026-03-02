@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { appsheetWebhookSchema } from '../schemas/appsheet-webhook.schema.ts'
+import { appsheetWebhookSchema } from '@/schemas/appsheet-webhook.schema.ts'
 
 describe('appsheet-webhook-schema', () => {
   test('validates a correct payload', () => {

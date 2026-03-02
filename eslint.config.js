@@ -14,5 +14,11 @@ export default antfu({
     'node/prefer-global/process': 'off',
     'curly': ['error', 'all'],
     'antfu/if-newline': 'error',
+    'no-restricted-imports': ['error', {
+      patterns: [{
+        group: ['../*', './*'],
+        message: 'Use @/ path alias instead of relative imports.',
+      }],
+    }],
   },
 })

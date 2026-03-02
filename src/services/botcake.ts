@@ -3,9 +3,9 @@
  * Uses Botcake's public API to send messages via flows
  */
 
-import { getConfig } from '../config.ts'
-import { logEvent } from '../utils/logger.ts'
-import { withRetry } from '../utils/retry.ts'
+import { getConfig } from '@/config.ts'
+import { logEvent } from '@/utils/logger.ts'
+import { withRetry } from '@/utils/retry.ts'
 
 const BASE_URL = 'https://botcake.io/api/public_api/v1'
 

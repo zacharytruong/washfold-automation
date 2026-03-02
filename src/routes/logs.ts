@@ -4,7 +4,7 @@
  */
 
 import type { Context } from 'hono'
-import { getErrorLogs, getLogsByEventType, getRecentLogs } from '../utils/logger.ts'
+import { getErrorLogs, getLogsByEventType, getRecentLogs } from '@/utils/logger.ts'
 
 /** Parse and clamp limit query param: default 50, min 1, max 500 */
 function parseLimit(raw: string | undefined): number {

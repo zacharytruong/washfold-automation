@@ -8,7 +8,7 @@ import {
   shouldCreateAppSheetEntry,
   shouldMarkAppSheetDelivered,
   shouldUpdatePosStatus,
-} from '../utils/status-mapper.ts'
+} from '@/utils/status-mapper.ts'
 
 describe('status-mapper', () => {
   describe('shouldCreateAppSheetEntry', () => {

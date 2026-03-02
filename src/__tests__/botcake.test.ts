@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { formatPhoneToPsid, isValidPhone } from '../services/botcake.ts'
+import { formatPhoneToPsid, isValidPhone } from '@/services/botcake.ts'
 
 describe('botcake', () => {
   describe('formatPhoneToPsid', () => {

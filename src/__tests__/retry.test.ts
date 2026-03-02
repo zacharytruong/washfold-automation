@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
-import { closeLogger, initLogger } from '../utils/logger.ts'
-import { withRetry } from '../utils/retry.ts'
+import { closeLogger, initLogger } from '@/utils/logger.ts'
+import { withRetry } from '@/utils/retry.ts'
 
 beforeEach(() => {
   initLogger(':memory:')

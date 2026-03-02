@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { posWebhookSchema } from '../schemas/pos-webhook.schema.ts'
+import { posWebhookSchema } from '@/schemas/pos-webhook.schema.ts'
 
 describe('pos-webhook-schema', () => {
   const validPayload = {

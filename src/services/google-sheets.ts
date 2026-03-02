@@ -6,9 +6,9 @@
 
 import type { sheets_v4 } from 'googleapis'
 import { google } from 'googleapis'
-import { getConfig } from '../config.ts'
-import { logEvent } from '../utils/logger.ts'
-import { withRetry } from '../utils/retry.ts'
+import { getConfig } from '@/config.ts'
+import { logEvent } from '@/utils/logger.ts'
+import { withRetry } from '@/utils/retry.ts'
 
 export interface OrderData {
   orderNumber: string

@@ -5,8 +5,8 @@
  */
 
 import type { Context, Next } from 'hono'
-import { getConfig, isDev } from '../config.ts'
-import { timingSafeEqual } from '../utils/timing-safe-equal.ts'
+import { getConfig, isDev } from '@/config.ts'
+import { timingSafeEqual } from '@/utils/timing-safe-equal.ts'
 
 export async function authLogViewer(c: Context, next: Next): Promise<Response | void> {
   const { logViewerSecret } = getConfig()

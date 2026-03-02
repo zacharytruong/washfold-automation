@@ -3,9 +3,9 @@
  * API docs: https://pos.pages.fm/api/v1
  */
 
-import { getConfig } from '../config.ts'
-import { logEvent } from '../utils/logger.ts'
-import { withRetry } from '../utils/retry.ts'
+import { getConfig } from '@/config.ts'
+import { logEvent } from '@/utils/logger.ts'
+import { withRetry } from '@/utils/retry.ts'
 
 const BASE_URL = 'https://pos.pages.fm/api/v1'
 

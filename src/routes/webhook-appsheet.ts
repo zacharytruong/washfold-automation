@@ -8,14 +8,14 @@
  */
 
 import type { Context } from 'hono'
-import { getConfig } from '../config.ts'
-import { appsheetWebhookSchema } from '../schemas/appsheet-webhook.schema.ts'
-import { sendStatusNotification } from '../services/botcake.ts'
-import { getCustomerPhone } from '../services/google-sheets.ts'
-import { updateOrderStatus } from '../services/pancake-pos.ts'
-import { logEvent } from '../utils/logger.ts'
-import { getPosWaitForPickupCode, shouldUpdatePosStatus } from '../utils/status-mapper.ts'
-import { timingSafeEqual } from '../utils/timing-safe-equal.ts'
+import { getConfig } from '@/config.ts'
+import { appsheetWebhookSchema } from '@/schemas/appsheet-webhook.schema.ts'
+import { sendStatusNotification } from '@/services/botcake.ts'
+import { getCustomerPhone } from '@/services/google-sheets.ts'
+import { updateOrderStatus } from '@/services/pancake-pos.ts'
+import { logEvent } from '@/utils/logger.ts'
+import { getPosWaitForPickupCode, shouldUpdatePosStatus } from '@/utils/status-mapper.ts'
+import { timingSafeEqual } from '@/utils/timing-safe-equal.ts'
 
 export async function handleAppSheetWebhook(c: Context): Promise<Response> {
   // Verify webhook secret with timing-safe comparison

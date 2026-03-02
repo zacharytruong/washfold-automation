@@ -7,7 +7,7 @@ import {
   getRecentLogs,
   initLogger,
   logEvent,
-} from '../utils/logger.ts'
+} from '@/utils/logger.ts'
 
 const TEST_DB = 'test-logs.db'
 

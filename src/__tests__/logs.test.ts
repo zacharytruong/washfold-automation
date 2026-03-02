@@ -5,9 +5,9 @@
 import { unlinkSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
-import { authLogViewer } from '../middleware/auth-log-viewer.ts'
-import { handleErrorLogs, handleLogsByType, handleRecentLogs } from '../routes/logs.ts'
-import { closeLogger, initLogger, logEvent } from '../utils/logger.ts'
+import { authLogViewer } from '@/middleware/auth-log-viewer.ts'
+import { handleErrorLogs, handleLogsByType, handleRecentLogs } from '@/routes/logs.ts'
+import { closeLogger, initLogger, logEvent } from '@/utils/logger.ts'
 
 type Json = any
 

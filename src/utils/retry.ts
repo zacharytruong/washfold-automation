@@ -3,7 +3,7 @@
  * Used by all service wrappers (Google Sheets, Pancake POS, Botcake)
  */
 
-import { logEvent } from './logger.ts'
+import { logEvent } from '@/utils/logger.ts'
 
 export interface RetryOptions {
   maxAttempts: number

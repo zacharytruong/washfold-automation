@@ -4,12 +4,12 @@
  */
 
 import { Hono } from 'hono'
-import { getPort, isDev, validateConfig } from './config.ts'
-import { authLogViewer } from './middleware/auth-log-viewer.ts'
-import { handleErrorLogs, handleLogsByType, handleRecentLogs } from './routes/logs.ts'
-import { handleAppSheetWebhook } from './routes/webhook-appsheet.ts'
-import { handlePosWebhook } from './routes/webhook-pos.ts'
-import { logEvent } from './utils/logger.ts'
+import { getPort, isDev, validateConfig } from '@/config.ts'
+import { authLogViewer } from '@/middleware/auth-log-viewer.ts'
+import { handleErrorLogs, handleLogsByType, handleRecentLogs } from '@/routes/logs.ts'
+import { handleAppSheetWebhook } from '@/routes/webhook-appsheet.ts'
+import { handlePosWebhook } from '@/routes/webhook-pos.ts'
+import { logEvent } from '@/utils/logger.ts'
 
 // Validate config at startup in production (fail fast)
 if (!isDev()) {
