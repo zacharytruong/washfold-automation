@@ -47,9 +47,6 @@ describe('status-mapper', () => {
 
     test('returns false for other AppSheet statuses', () => {
       expect(shouldUpdatePosStatus(APPSHEET_STATUSES.ARRIVED)).toBe(false)
-      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.WASHED)).toBe(false)
-      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.DRIED)).toBe(false)
-      expect(shouldUpdatePosStatus(APPSHEET_STATUSES.FOLDED)).toBe(false)
       expect(shouldUpdatePosStatus(APPSHEET_STATUSES.DELIVERED)).toBe(false)
       expect(shouldUpdatePosStatus('Invalid')).toBe(false)
     })
@@ -64,10 +61,7 @@ describe('status-mapper', () => {
   describe('APPSHEET_STATUSES', () => {
     test('has correct workflow statuses', () => {
       expect(APPSHEET_STATUSES.ARRIVED).toBe('Arrived')
-      expect(APPSHEET_STATUSES.WASHED).toBe('Washed')
-      expect(APPSHEET_STATUSES.DRIED).toBe('Dried')
-      expect(APPSHEET_STATUSES.FOLDED).toBe('Folded')
-      expect(APPSHEET_STATUSES.STORAGE_READY).toBe('Storage / Ready')
+      expect(APPSHEET_STATUSES.STORAGE_READY).toBe('Lưu kho / STORAGE')
       expect(APPSHEET_STATUSES.DELIVERED).toBe('Delivered')
     })
   })

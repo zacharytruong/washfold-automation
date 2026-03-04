@@ -7,21 +7,18 @@
 // POS status codes from Pancake API
 export const POS_STATUSES = {
   NEW: 0,
-  CONFIRMED: 3,
+  CONFIRMED: 1,
   PACKAGING: 8,
   WAITING: 9,
-  SHIPPED: 11,
-  RECEIVED: 12,
-  RETURNED: 20,
+  SHIPPED: 2,
+  RECEIVED: 3,
+  RETURNED: 5,
 } as const
 
 // AppSheet workflow statuses (in order)
 export const APPSHEET_STATUSES = {
   ARRIVED: 'Arrived',
-  WASHED: 'Washed',
-  DRIED: 'Dried',
-  FOLDED: 'Folded',
-  STORAGE_READY: 'Storage / Ready',
+  STORAGE_READY: 'Lưu kho / STORAGE',
   DELIVERED: 'Delivered',
 } as const
 
@@ -33,7 +30,7 @@ export type AppSheetStatus = (typeof APPSHEET_STATUSES)[keyof typeof APPSHEET_ST
  * Only POS Confirmed (3) triggers entry creation with "Arrived" status
  */
 export function shouldCreateAppSheetEntry(posStatusCode: number): boolean {
-  return posStatusCode === POS_STATUSES.CONFIRMED
+  return posStatusCode === POS_STATUSES.SHIPPED
 }
 
 /**

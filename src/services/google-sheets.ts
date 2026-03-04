@@ -10,7 +10,7 @@ import { getConfig } from '@/config.ts'
 import { logEvent } from '@/utils/logger.ts'
 import { withRetry } from '@/utils/retry.ts'
 
-export interface OrderData {
+export interface AppSheetOrderData {
   orderNumber: string
   goiDichVu: string
   delivery: string
@@ -20,7 +20,7 @@ export interface OrderData {
   status: string
 }
 
-export interface SheetRowData extends OrderData {
+export interface AppSheetRowData extends AppSheetOrderData {
   rowIndex: number
 }
 
@@ -35,7 +35,7 @@ const COLUMNS = {
   STATUS: 6,
 } as const
 
-const SHEET_RANGE = 'Arrival'
+const SHEET_RANGE = 'NewOrder'
 let sheetsClient: sheets_v4.Sheets | null = null
 
 /**
@@ -61,7 +61,7 @@ function getClient(): sheets_v4.Sheets {
 /**
  * Append a new order row to the Arrival sheet
  */
-export async function appendRow(orderData: OrderData): Promise<void> {
+export async function appendRow(orderData: AppSheetOrderData): Promise<void> {
   return withRetry(async () => {
     const config = getConfig()
     const client = getClient()
@@ -108,7 +108,7 @@ export async function appendRow(orderData: OrderData): Promise<void> {
 /**
  * Internal find without retry — used by sibling functions to avoid nested retry amplification
  */
-async function findRowInternal(orderNumber: string): Promise<SheetRowData | null> {
+async function findRowInternal(orderNumber: string): Promise<AppSheetRowData | null> {
   const config = getConfig()
   const client = getClient()
 
@@ -118,6 +118,7 @@ async function findRowInternal(orderNumber: string): Promise<SheetRowData | null
   })
 
   const rows = response.data.values
+
   if (!rows || rows.length === 0) {
     return null
   }
@@ -149,7 +150,7 @@ async function findRowInternal(orderNumber: string): Promise<SheetRowData | null
 /**
  * Find a row by order number and return its data
  */
-export async function findRowByOrderNumber(orderNumber: string): Promise<SheetRowData | null> {
+export async function findRowByOrderNumber(orderNumber: string): Promise<AppSheetRowData | null> {
   return withRetry(async () => {
     try {
       return await findRowInternal(orderNumber)
@@ -249,4 +250,15 @@ export async function getCustomerPhone(orderNumber: string): Promise<string | nu
       throw error
     }
   }, 'sheets:getCustomerPhone')
+}
+
+export async function getColumnNames(): Promise<string[]> {
+  const config = getConfig()
+  const client = getClient()
+  const res = await client.spreadsheets.values.get({
+    spreadsheetId: config.googleSheetsId,
+    range: `${SHEET_RANGE}!1:1`,
+  })
+  console.log((res.data.values?.[0] ?? []).map(String))
+  return (res.data.values?.[0] ?? []).map(String)
 }
