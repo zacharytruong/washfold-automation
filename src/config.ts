@@ -34,7 +34,8 @@ export interface Config {
 
   // Google Sheets
   googleSheetsId: string
-  googleServiceAccountJson: string
+  googleServiceAccountClientEmail: string
+  googleServiceAccountPrivateKeyBase64: string
 
   // Security
   webhookSecret: string
@@ -81,7 +82,8 @@ export function getConfig(): Config {
 
     // Google Sheets
     googleSheetsId: getEnvVar('GOOGLE_SHEETS_ID'),
-    googleServiceAccountJson: getEnvVar('GOOGLE_SERVICE_ACCOUNT_JSON'),
+    googleServiceAccountClientEmail: getEnvVar('GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL'),
+    googleServiceAccountPrivateKeyBase64: getEnvVar('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64'),
 
     // Security
     webhookSecret: getEnvVar('WEBHOOK_SECRET'),

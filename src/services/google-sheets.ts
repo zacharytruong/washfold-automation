@@ -39,10 +39,12 @@ function getClient(): sheets_v4.Sheets {
   }
 
   const config = getConfig()
-  const credentials = JSON.parse(config.googleServiceAccountJson)
 
   const auth = new google.auth.GoogleAuth({
-    credentials,
+    credentials: {
+      client_email: config.googleServiceAccountClientEmail,
+      private_key: atob(config.googleServiceAccountPrivateKeyBase64),
+    },
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   })
 
