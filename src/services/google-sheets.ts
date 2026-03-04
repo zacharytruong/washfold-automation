@@ -29,6 +29,7 @@ const COLUMNS = {
 
 const SHEET_RANGE = 'NewOrder'
 let sheetsClient: sheets_v4.Sheets | null = null
+let cachedSheetId: number | null = null
 
 /**
  * Initialize Google Sheets client with service account
@@ -53,7 +54,34 @@ function getClient(): sheets_v4.Sheets {
 }
 
 /**
- * Append a new order row to the NewOrder sheet (3 columns: OrderNumber, Phone, Status)
+ * Get the numeric sheet ID for batchUpdate operations (cached after first call)
+ */
+async function getSheetId(spreadsheetId: string): Promise<number> {
+  if (cachedSheetId !== null) {
+    return cachedSheetId
+  }
+
+  const client = getClient()
+  const response = await client.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets.properties',
+  })
+
+  const sheet = response.data.sheets?.find(
+    s => s.properties?.title === SHEET_RANGE,
+  )
+
+  if (sheet?.properties?.sheetId == null) {
+    throw new Error(`Sheet "${SHEET_RANGE}" not found`)
+  }
+
+  cachedSheetId = sheet.properties.sheetId
+  return cachedSheetId
+}
+
+/**
+ * Insert a new order row at the top of the NewOrder sheet (after header row)
+ * Uses insert-then-write to avoid append overwrite issues and keeps newest orders on top
  */
 export async function appendRow(orderData: AppSheetOrderData): Promise<void> {
   return withRetry(async () => {
@@ -61,9 +89,30 @@ export async function appendRow(orderData: AppSheetOrderData): Promise<void> {
     const client = getClient()
 
     try {
-      await client.spreadsheets.values.append({
+      const sheetId = await getSheetId(config.googleSheetsId)
+
+      // Insert a blank row at index 1 (right after the header row)
+      await client.spreadsheets.batchUpdate({
         spreadsheetId: config.googleSheetsId,
-        range: `${SHEET_RANGE}!A:C`,
+        requestBody: {
+          requests: [{
+            insertDimension: {
+              range: {
+                sheetId,
+                dimension: 'ROWS',
+                startIndex: 1,
+                endIndex: 2,
+              },
+              inheritFromBefore: false,
+            },
+          }],
+        },
+      })
+
+      // Write order data into the newly inserted row 2
+      await client.spreadsheets.values.update({
+        spreadsheetId: config.googleSheetsId,
+        range: `${SHEET_RANGE}!A2:C2`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [[orderData.orderNumber, orderData.phone, orderData.status]],

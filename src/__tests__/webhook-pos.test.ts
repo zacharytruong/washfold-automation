@@ -124,8 +124,8 @@ describe('pos-webhook-schema', () => {
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.items).toHaveLength(1)
-      expect(result.data.items[0].quantity).toBe(1)
-      expect(result.data.items[0].product_id).toBe('6a51b9fa-b873-4288-bfd7-f7632b1ebcff')
+      expect(result.data.items[0]!.quantity).toBe(1)
+      expect(result.data.items[0]!.product_id).toBe('6a51b9fa-b873-4288-bfd7-f7632b1ebcff')
     }
   })
 
