@@ -1,6 +1,6 @@
 # Phase 04 — Update POS Webhook Handler
 
-**Status:** `pending`
+**Status:** `completed`
 **Blocked by:** Phase 01 (cancel code), Phase 02 (status-mapper), Phase 03 (google-sheets)
 **File:** `src/routes/webhook-pos.ts`
 

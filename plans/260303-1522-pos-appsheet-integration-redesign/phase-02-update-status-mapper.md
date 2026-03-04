@@ -1,6 +1,6 @@
 # Phase 02 — Update Status Mapper
 
-**Status:** `pending`
+**Status:** `completed`
 **Priority:** High (foundation — routes depend on this)
 **File:** `src/utils/status-mapper.ts`
 

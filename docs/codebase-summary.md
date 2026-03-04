@@ -1,7 +1,7 @@
 # Codebase Summary
 
-**Last Updated:** 2026-02-26
-**Phase:** 06 (Log Viewer APIs)
+**Last Updated:** 2026-03-04
+**Phase:** 06 (Integration Redesign - POS ↔ AppSheet)
 **Total LOC:** ~1250 | **Files:** 18 core + 7 test + 4 deployment
 
 ## Quick Navigation
@@ -40,8 +40,8 @@
 ### Routes Layer (Phase 03-06)
 | Module | Lines | Purpose |
 |--------|-------|---------|
-| `src/routes/webhook-pos.ts` | 78 | POST /webhook/pos handler with Zod validation |
-| `src/routes/webhook-appsheet.ts` | 85 | POST /webhook/appsheet handler with timing-safe auth |
+| `src/routes/webhook-pos.ts` | 143 | POST /webhook/pos handler: POS NEW(0)→create AppSheet, CANCELLED(4)→cancel |
+| `src/routes/webhook-appsheet.ts` | 190 | POST /webhook/appsheet handler: STORAGE→POS wait+notify, Delivery→POS delivered+notify |
 | `src/routes/logs.ts` | 39 | GET /logs/* handlers (recent, errors, by-type) with limit validation |
 
 ### Middleware Layer (Phase 06)
@@ -58,7 +58,7 @@
 ### Services Layer (Phase 02)
 | Module | Lines | Purpose |
 |--------|-------|---------|
-| `src/services/google-sheets.ts` | 199 | Sheets API wrapper (append, update, find rows) |
+| `src/services/google-sheets.ts` | 201 | Sheets API wrapper (3-col schema: OrderNumber, Phone, Status) |
 | `src/services/pancake-pos.ts` | 115 | POS API wrapper (update order status, get order) |
 | `src/services/botcake.ts` | 139 | WhatsApp notification via Botcake flows |
 
@@ -66,7 +66,7 @@
 | Module | Lines | Purpose |
 |--------|-------|---------|
 | `src/utils/retry.ts` | 68 | Exponential backoff wrapper for transient failures (Phase 4) |
-| `src/utils/status-mapper.ts` | 94 | Bidirectional POS ↔ AppSheet status conversion |
+| `src/utils/status-mapper.ts` | 92 | Status triggers: NEW(0)→create, CANCELLED(4)→cancel, DELIVERY→delivered |
 | `src/utils/logger.ts` | 153 | SQLite event logging with query functions |
 | `src/utils/timing-safe-equal.ts` | 12 | Timing-safe string comparison for webhook auth |
 
@@ -110,15 +110,13 @@ interface Config {
 
 ### Order Data
 ```typescript
-interface OrderData {
-  orderNumber: string
-  estimatedDelivery: string
-  deliveryOption: string
-  status: string
-  customerPhone: string
+interface AppSheetOrderData {
+  orderNumber: string  // From POS webhook data.id
+  phone: string        // From POS or AppSheet payload
+  status: string       // AppSheet status value
 }
 
-interface SheetRowData extends OrderData {
+interface AppSheetRowData extends AppSheetOrderData {
   rowIndex: number  // 1-indexed for Sheets API
 }
 ```
@@ -144,6 +142,14 @@ interface LogEntry {
 
 ## Common Patterns
 
+### Webhook Authentication
+All webhooks verify secret with timing-safe comparison to prevent timing attacks:
+```typescript
+if (!timingSafeEqual(secret, config.webhookSecret)) {
+  return c.json({ error: 'Unauthorized' }, 401)
+}
+```
+
 ### Error Handling
 All service calls wrap operations in try-catch with event logging:
 ```typescript
@@ -156,24 +162,12 @@ try {
 }
 ```
 
-### Service Initialization
-Services initialize clients on first use and cache them:
-```typescript
-let client: Client | null = null
-function getClient(): Client {
-  if (client) return client
-  client = initializeClient()
-  return client
-}
-```
-
-### Status Mapping
-Bidirectional mapping with pass-through for unmapped statuses:
-```typescript
-posToAppSheet(0) → 'Pending'  // Mapped
-appSheetToPos('Pending') → 0
-posToAppSheet(999) → 'Unknown(999)'  // Unmapped pass-through
-```
+### POS ↔ AppSheet Integration
+Triggers on specific status changes:
+- POS NEW(0) → Create AppSheet entry with "Arrived"
+- POS CANCELLED(4) → Mark AppSheet row as "Cancelled"
+- AppSheet "Lưu kho / STORAGE" → Update POS to WAITING(9) + notify
+- AppSheet "Delivery" → Update POS to RECEIVED(3) + notify
 
 ## Dependencies
 

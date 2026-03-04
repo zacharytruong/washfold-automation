@@ -1,7 +1,7 @@
 # System Architecture
 
-**Last Updated:** 2026-02-26
-**Current Phase:** 05 (Deployment)
+**Last Updated:** 2026-03-04
+**Current Phase:** 06 (Integration Redesign)
 
 ## System Overview
 
@@ -85,11 +85,11 @@ washfold-automation synchronizes order data across three platforms:
 | Function | Purpose | Returns |
 |----------|---------|---------|
 | `appendRow(orderData)` | Add order to tracking sheet | `void` (or error) |
-| `findRowByOrderId(orderId)` | Locate order row | `SheetRowData \| null` |
-| `updateStatus(orderId, status)` | Update order status cell | `boolean` |
+| `findRowByOrderNumber(orderNumber)` | Locate order row | `AppSheetRowData \| null` |
+| `updateStatus(orderNumber, status)` | Update order status cell | `boolean` |
 
 **Authentication:** Service account JSON (OAuth2)
-**Sheet Format:** Columns A-E (OrderNumber, EstimatedDelivery, DeliveryOption, Status, CustomerPhone)
+**Sheet Format:** Columns A-C (OrderNumber, Phone, Status) - simplified 3-col schema
 
 #### Pancake POS Service
 **File:** `src/services/pancake-pos.ts`
@@ -143,22 +143,18 @@ washfold-automation synchronizes order data across three platforms:
 #### Status Mapper
 **File:** `src/utils/status-mapper.ts`
 
-**Mappings:**
-```
-POS Code → AppSheet Status
-0        → Pending
-3        → Processing
-11       → Delivering
-12       → Delivered
-[other]  → Unknown(code)  [pass-through]
-```
+**Key Triggers:**
+- `shouldCreateAppSheetEntry(code)` - Returns true for POS NEW(0)
+- `shouldCancelAppSheetEntry(code)` - Returns true for POS CANCELLED(4)
+- `shouldMarkDelivered(status)` - Returns true for AppSheet "Delivery"
+- `shouldUpdatePosStatus(status)` - Returns true for AppSheet "Lưu kho / STORAGE"
 
 | Function | Purpose |
 |----------|---------|
-| `posToAppSheet(code)` | Convert POS code to AppSheet status |
-| `appSheetToPos(status)` | Convert AppSheet status to POS code |
-| `isKnownPosStatus(code)` | Check if mapping exists |
+| `getPosDeliveredCode()` | Get POS code for delivered state (RECEIVED = 3) |
+| `getPosWaitForPickupCode()` | Get POS code for wait state (WAITING = 9) |
 | `getPosStatusName(code)` | Get human-readable name |
+| `getAllPosStatusCodes()` | Get all valid POS status codes |
 
 #### Log Viewer Routes
 **File:** `src/routes/logs.ts`
@@ -243,12 +239,14 @@ CREATE TABLE logs (
 
 ### Order Entity
 ```typescript
-OrderData {
-  orderNumber: string      // POS order ID
-  estimatedDelivery: string  // Delivery date/time
-  deliveryOption: string   // Delivery method
+AppSheetOrderData {
+  orderNumber: string      // POS order ID (from data.id)
+  phone: string           // Customer WhatsApp number
   status: string          // Current status (AppSheet format)
-  customerPhone: string   // Customer WhatsApp number
+}
+
+AppSheetRowData extends AppSheetOrderData {
+  rowIndex: number        // 1-indexed row in Google Sheets
 }
 ```
 
@@ -302,40 +300,46 @@ Example: 1s, 2s, 4s (capped at 10s)
 ## Webhook Flow (Phase 3)
 
 ### POS Webhook: /webhook/pos
-**Trigger:** Pancake POS order status change (e.g., Confirmed)
+**Trigger:** Pancake POS order status change
 
 **Flow:**
-1. POS sends webhook with order data (OrderNumber, Status, CustomerPhone, etc.)
-2. Endpoint logs raw payload before validation
-3. Zod schema validates payload structure
-4. If status = Confirmed (3):
-   - Extract order fields (OrderNumber, Gói dịch vụ, Delivery, Số lượng món, Đồ ướt, CustomerPhone)
-   - Append row to Google Sheets with AppSheet status = "Arrived"
-   - Store CustomerPhone for later WhatsApp lookup
-5. If status = Shipped (11) or Delivered (12):
+1. POS sends webhook with order data (id, status, bill_phone_number, etc.)
+2. Verify webhook secret (query param) with timing-safe comparison
+3. Log raw payload before validation
+4. Zod schema validates payload structure
+5. If status = NEW (0):
+   - Check for duplicate (prevent POS retry duplicates)
+   - Append row to Google Sheets: OrderNumber, Phone, Status="Arrived"
+6. If status = CANCELLED (4):
    - Find existing AppSheet row by OrderNumber
-   - Update status to "Delivered"
-6. Return 200 OK with event ID
-7. Log event with payload, status, timing
+   - Update status to "Cancelled"
+7. Return 200 OK
+8. Log event with payload, status, timing
 
-**Security:** No authentication required (POS controls origin)
+**Security:** HMAC timing-safe comparison on webhook_secret query param
 
 ### AppSheet Webhook: /webhook/appsheet
-**Trigger:** AppSheet status change via automation (e.g., Storage/Ready)
+**Trigger:** AppSheet status change via automation
 
 **Flow:**
-1. AppSheet sends webhook with OrderNumber and Status
-2. Endpoint extracts query param secret
-3. Timing-safe comparison with WEBHOOK_SECRET (prevents timing attacks)
-4. Log all status changes (for audit trail, even non-actionable ones)
-5. If status = "Storage / Ready":
-   - Retrieve CustomerPhone from Google Sheets lookup
+1. AppSheet sends webhook with OrderNumber, Status, and optional Phone
+2. Verify webhook secret (query param) with timing-safe comparison
+3. Log raw payload before validation
+4. Zod schema validates payload structure (phone field optional)
+5. Log all status changes (for audit trail, even non-actionable ones)
+6. If status = "Lưu kho / STORAGE":
    - Update POS order status to "Wait for pickup" (code 9)
-   - Send WhatsApp notification via Botcake with order details
-6. Return 200 OK
-7. Log event with action taken
+   - If phone present in payload: Send WhatsApp notification via Botcake
+   - Log notification result (non-fatal failure)
+7. If status = "Delivery":
+   - Update POS order status to "Received/Delivered" (code 3)
+   - If phone present in payload: Send WhatsApp notification via Botcake
+   - Log notification result (non-fatal failure)
+8. Return 200 OK
+9. Log event with action taken
 
-**Security:** HMAC timing-safe comparison on query param
+**Security:** HMAC timing-safe comparison on webhook_secret query param
+**Phone Resolution:** Retrieved from AppSheet webhook payload (not Sheets lookup)
 
 ## Integration Points
 

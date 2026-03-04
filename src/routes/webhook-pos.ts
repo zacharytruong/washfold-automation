@@ -3,8 +3,8 @@
  * Receives Pancake POS order events and syncs to Google Sheets
  *
  * Triggers:
- * - Confirmed (3) → Create AppSheet entry with "Arrived" status
- * - Shipped (11) / Delivered (12) → Update AppSheet entry to "Delivered"
+ * - NEW (0) → Create AppSheet entry with "Arrived" status
+ * - CANCELLED (4) → Mark AppSheet entry as "Cancelled"
  */
 
 import type { Context } from 'hono'
@@ -12,7 +12,7 @@ import { getConfig } from '@/config.ts'
 import { posWebhookSchema } from '@/schemas/pos-webhook.schema.ts'
 import { appendRow, findRowByOrderNumber, updateStatus } from '@/services/google-sheets.ts'
 import { logEvent } from '@/utils/logger.ts'
-import { APPSHEET_STATUSES, shouldCreateAppSheetEntry, shouldMarkAppSheetDelivered } from '@/utils/status-mapper.ts'
+import { APPSHEET_STATUSES, shouldCancelAppSheetEntry, shouldCreateAppSheetEntry } from '@/utils/status-mapper.ts'
 import { timingSafeEqual } from '@/utils/timing-safe-equal.ts'
 
 export async function handlePosWebhook(c: Context): Promise<Response> {
@@ -66,15 +66,15 @@ export async function handlePosWebhook(c: Context): Promise<Response> {
 
   const data = result.data
 
-  // POS Confirmed (3) → Create AppSheet entry with "Arrived" status
+  // POS NEW (0) → Create AppSheet entry with "Arrived" status
   if (shouldCreateAppSheetEntry(data.status)) {
     try {
       // Check for existing order to prevent duplicates on POS retry
-      const existing = await findRowByOrderNumber(data.order_number)
+      const existing = await findRowByOrderNumber(data.id)
       if (existing) {
         logEvent({
           eventType: 'pos:webhook:created',
-          payload: { orderNumber: data.order_number },
+          payload: { orderNumber: data.id },
           status: 'warning',
           error: 'Order already exists in AppSheet, skipping duplicate',
         })
@@ -82,18 +82,14 @@ export async function handlePosWebhook(c: Context): Promise<Response> {
       }
 
       await appendRow({
-        orderNumber: data.order_number,
-        goiDichVu: data.goi_dich_vu,
-        delivery: data.delivery,
-        soLuongMon: data.so_luong_mon,
-        doUot: data.do_uot,
-        customerPhone: data.customer_phone,
+        orderNumber: data.id,
+        phone: data.bill_phone_number,
         status: APPSHEET_STATUSES.ARRIVED,
       })
 
       logEvent({
         eventType: 'pos:webhook:created',
-        payload: { orderNumber: data.order_number, status: APPSHEET_STATUSES.ARRIVED },
+        payload: { orderNumber: data.id, status: APPSHEET_STATUSES.ARRIVED },
         status: 'success',
       })
     }
@@ -101,7 +97,7 @@ export async function handlePosWebhook(c: Context): Promise<Response> {
       const msg = error instanceof Error ? error.message : String(error)
       logEvent({
         eventType: 'pos:webhook:created',
-        payload: { orderNumber: data.order_number },
+        payload: { orderNumber: data.id },
         status: 'error',
         error: msg,
       })
@@ -109,22 +105,22 @@ export async function handlePosWebhook(c: Context): Promise<Response> {
     }
   }
 
-  // POS Shipped (11) or Delivered (12) → Update AppSheet to "Delivered"
-  if (shouldMarkAppSheetDelivered(data.status)) {
+  // POS CANCELLED → Mark AppSheet row as "Cancelled"
+  if (shouldCancelAppSheetEntry(data.status)) {
     try {
-      const existing = await findRowByOrderNumber(data.order_number)
+      const existing = await findRowByOrderNumber(data.id)
       if (existing) {
-        await updateStatus(data.order_number, APPSHEET_STATUSES.DELIVERED)
+        await updateStatus(data.id, 'Cancelled')
         logEvent({
-          eventType: 'pos:webhook:delivered',
-          payload: { orderNumber: data.order_number },
+          eventType: 'pos:webhook:cancelled',
+          payload: { orderNumber: data.id },
           status: 'success',
         })
       }
       else {
         logEvent({
-          eventType: 'pos:webhook:delivered',
-          payload: { orderNumber: data.order_number },
+          eventType: 'pos:webhook:cancelled',
+          payload: { orderNumber: data.id },
           status: 'warning',
           error: 'Order not found in AppSheet',
         })
@@ -133,12 +129,12 @@ export async function handlePosWebhook(c: Context): Promise<Response> {
     catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
       logEvent({
-        eventType: 'pos:webhook:delivered',
-        payload: { orderNumber: data.order_number },
+        eventType: 'pos:webhook:cancelled',
+        payload: { orderNumber: data.id },
         status: 'error',
         error: msg,
       })
-      return c.json({ error: 'Failed to update AppSheet status' }, 500)
+      return c.json({ error: 'Failed to cancel AppSheet entry' }, 500)
     }
   }
 

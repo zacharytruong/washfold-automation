@@ -8,8 +8,8 @@ function makePayload(overrides: Record<string, unknown> = {}) {
     type: 'orders',
     event_type: 'update',
     system_id: 91,
-    status: 2,
-    status_name: 'shipped',
+    status: 0,
+    status_name: 'new',
     total_price: 194400,
     total_discount: 0,
     shipping_fee: 0,
@@ -103,8 +103,8 @@ describe('pos-webhook-schema', () => {
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.id).toBe('99991')
-      expect(result.data.status).toBe(2)
-      expect(result.data.status_name).toBe('shipped')
+      expect(result.data.status).toBe(0)
+      expect(result.data.status_name).toBe('new')
       expect(result.data.total_price).toBe(194400)
     }
   })
@@ -140,6 +140,14 @@ describe('pos-webhook-schema', () => {
       assigning_seller_id: null,
     }))
     expect(result.success).toBe(true)
+  })
+
+  test('validates status 0 (New)', () => {
+    const result = posWebhookSchema.safeParse(makePayload({ status: 0, status_name: 'new' }))
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.status).toBe(0)
+    }
   })
 
   test('rejects missing required fields', () => {

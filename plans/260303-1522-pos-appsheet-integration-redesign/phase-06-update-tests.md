@@ -1,6 +1,6 @@
 # Phase 06 — Update Tests
 
-**Status:** `pending`
+**Status:** `completed`
 **Blocked by:** Phases 02–05 (all implementation must be done first)
 **Files:**
 - `src/__tests__/status-mapper.test.ts`

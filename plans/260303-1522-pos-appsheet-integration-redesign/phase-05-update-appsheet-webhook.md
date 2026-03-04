@@ -1,6 +1,6 @@
 # Phase 05 — Update AppSheet Webhook Handler
 
-**Status:** `pending`
+**Status:** `completed`
 **Blocked by:** Phase 02 (status-mapper), Phase 03 (google-sheets)
 **Files:** `src/routes/webhook-appsheet.ts`, `src/schemas/appsheet-webhook.schema.ts`
 

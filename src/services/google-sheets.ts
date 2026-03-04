@@ -1,6 +1,6 @@
 /**
  * Google Sheets API wrapper for order data management
- * Manages the "Arrival" table used by AppSheet
+ * Manages the "NewOrder" table used by AppSheet (3-col schema: OrderNumber, Phone, Status)
  * Uses service account authentication
  */
 
@@ -12,11 +12,7 @@ import { withRetry } from '@/utils/retry.ts'
 
 export interface AppSheetOrderData {
   orderNumber: string
-  goiDichVu: string
-  delivery: string
-  soLuongMon: number
-  doUot: boolean
-  customerPhone: string
+  phone: string
   status: string
 }
 
@@ -24,15 +20,11 @@ export interface AppSheetRowData extends AppSheetOrderData {
   rowIndex: number
 }
 
-// Column mappings for Arrival table (0-indexed)
+// Column mappings for NewOrder table (0-indexed)
 const COLUMNS = {
   ORDER_NUMBER: 0,
-  GOI_DICH_VU: 1,
-  DELIVERY: 2,
-  SO_LUONG_MON: 3,
-  DO_UOT: 4,
-  CUSTOMER_PHONE: 5,
-  STATUS: 6,
+  PHONE: 1,
+  STATUS: 2,
 } as const
 
 const SHEET_RANGE = 'NewOrder'
@@ -59,7 +51,7 @@ function getClient(): sheets_v4.Sheets {
 }
 
 /**
- * Append a new order row to the Arrival sheet
+ * Append a new order row to the NewOrder sheet (3 columns: OrderNumber, Phone, Status)
  */
 export async function appendRow(orderData: AppSheetOrderData): Promise<void> {
   return withRetry(async () => {
@@ -69,20 +61,10 @@ export async function appendRow(orderData: AppSheetOrderData): Promise<void> {
     try {
       await client.spreadsheets.values.append({
         spreadsheetId: config.googleSheetsId,
-        range: `${SHEET_RANGE}!A:G`,
+        range: `${SHEET_RANGE}!A:C`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
-          values: [
-            [
-              orderData.orderNumber,
-              orderData.goiDichVu,
-              orderData.delivery,
-              orderData.soLuongMon,
-              orderData.doUot ? 'TRUE' : 'FALSE',
-              orderData.customerPhone,
-              orderData.status,
-            ],
-          ],
+          values: [[orderData.orderNumber, orderData.phone, orderData.status]],
         },
       })
 
@@ -114,7 +96,7 @@ async function findRowInternal(orderNumber: string): Promise<AppSheetRowData | n
 
   const response = await client.spreadsheets.values.get({
     spreadsheetId: config.googleSheetsId,
-    range: `${SHEET_RANGE}!A:G`,
+    range: `${SHEET_RANGE}!A:C`,
   })
 
   const rows = response.data.values
@@ -134,11 +116,7 @@ async function findRowInternal(orderNumber: string): Promise<AppSheetRowData | n
       return {
         rowIndex: i + 1, // 1-indexed for Sheets API
         orderNumber: String(row[COLUMNS.ORDER_NUMBER] ?? ''),
-        goiDichVu: String(row[COLUMNS.GOI_DICH_VU] ?? ''),
-        delivery: String(row[COLUMNS.DELIVERY] ?? ''),
-        soLuongMon: Number(row[COLUMNS.SO_LUONG_MON] ?? 0),
-        doUot: String(row[COLUMNS.DO_UOT]).toUpperCase() === 'TRUE',
-        customerPhone: String(row[COLUMNS.CUSTOMER_PHONE] ?? ''),
+        phone: String(row[COLUMNS.PHONE] ?? ''),
         status: String(row[COLUMNS.STATUS] ?? ''),
       }
     }
@@ -170,6 +148,7 @@ export async function findRowByOrderNumber(orderNumber: string): Promise<AppShee
 
 /**
  * Update status for a specific order by order number
+ * Targets column C (STATUS = index 2)
  */
 export async function updateStatus(orderNumber: string, status: string): Promise<boolean> {
   return withRetry(async () => {
@@ -188,7 +167,7 @@ export async function updateStatus(orderNumber: string, status: string): Promise
         return false
       }
 
-      // Update only the status column (G = index 6)
+      // Update only the status column (C = index 2)
       const statusColumn = String.fromCharCode(65 + COLUMNS.STATUS)
       await client.spreadsheets.values.update({
         spreadsheetId: config.googleSheetsId,
@@ -218,47 +197,4 @@ export async function updateStatus(orderNumber: string, status: string): Promise
       throw error
     }
   }, 'sheets:updateStatus')
-}
-
-/**
- * Get customer phone number for a specific order
- * Used for WhatsApp notifications when AppSheet triggers "Storage / Ready"
- */
-export async function getCustomerPhone(orderNumber: string): Promise<string | null> {
-  return withRetry(async () => {
-    try {
-      const row = await findRowInternal(orderNumber)
-      if (!row || !row.customerPhone) {
-        logEvent({
-          eventType: 'sheets:getPhone',
-          payload: { orderNumber },
-          status: 'warning',
-          error: 'Customer phone not found',
-        })
-        return null
-      }
-      return row.customerPhone
-    }
-    catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logEvent({
-        eventType: 'sheets:getPhone',
-        payload: { orderNumber },
-        status: 'error',
-        error: errorMessage,
-      })
-      throw error
-    }
-  }, 'sheets:getCustomerPhone')
-}
-
-export async function getColumnNames(): Promise<string[]> {
-  const config = getConfig()
-  const client = getClient()
-  const res = await client.spreadsheets.values.get({
-    spreadsheetId: config.googleSheetsId,
-    range: `${SHEET_RANGE}!1:1`,
-  })
-  console.log((res.data.values?.[0] ?? []).map(String))
-  return (res.data.values?.[0] ?? []).map(String)
 }

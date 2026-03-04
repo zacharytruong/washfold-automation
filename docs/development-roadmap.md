@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Last Updated:** 2026-02-26
-**Current Phase:** 05 (Deployment)
+**Last Updated:** 2026-03-04
+**Current Phase:** 06 (Integration Redesign - Complete)
 **Overall Progress:** 100% Complete
 
 ---
@@ -209,6 +209,7 @@ Complete          Complete          Complete          Complete           Complet
 **Dates:** Feb 26, 2026
 **Status:** Complete
 **Progress:** 100%
+**Updated:** Mar 4, 2026 - Integration redesign implemented
 
 ### Deliverables
 
@@ -259,6 +260,55 @@ Complete          Complete          Complete          Complete           Complet
 - Automated health checking
 - Automatic restart on failure
 - Support for Railway or any Docker-compatible platform
+
+---
+
+## Phase 06 Enhancement: POS ↔ AppSheet Integration Redesign (✓ Complete)
+**Dates:** Mar 4, 2026
+**Status:** Complete
+**Progress:** 100%
+
+### Changes Made
+
+#### Google Sheets Schema Simplification
+- **Before:** 7 columns (OrderNumber, EstimatedDelivery, DeliveryOption, Status, CustomerPhone, etc.)
+- **After:** 3 columns (OrderNumber, Phone, Status)
+- **Impact:** Cleaner schema, phone data now sourced from webhooks instead of lookups
+- **File:** `src/services/google-sheets.ts`
+
+#### POS Webhook Trigger Realignment
+- **Before:** CONFIRMED (3) triggered order creation
+- **After:** NEW (0) triggers order creation
+- **Rationale:** Captures orders at earliest stage for immediate AppSheet sync
+- **File:** `src/routes/webhook-pos.ts`
+
+#### New Status Handlers
+- Added: `shouldCancelAppSheetEntry()` - Handles POS CANCELLED (4) → mark row as "Cancelled"
+- Added: `shouldMarkDelivered()` - Handles AppSheet "Delivery" → POS RECEIVED (3)
+- Added: `getPosDeliveredCode()` - Returns RECEIVED code
+- **File:** `src/utils/status-mapper.ts`
+
+#### AppSheet Webhook Improvements
+- **Added:** Optional `phone` field in webhook payload validation
+- **Removed:** `getCustomerPhone()` Sheets lookup (eliminated dependency chain)
+- **Change:** Phone now passed directly from AppSheet automation
+- **Handlers:** Both STORAGE and Delivery handlers now support phone-based notifications
+- **File:** `src/routes/webhook-appsheet.ts`, `src/schemas/appsheet-webhook.schema.ts`
+
+#### Authentication Consistency
+- POS webhook now uses same timing-safe secret verification as AppSheet
+- Both webhooks: `timingSafeEqual(secret, config.webhookSecret)`
+- **File:** `src/routes/webhook-pos.ts`
+
+### Testing Impact
+- All existing 60 tests still passing
+- No new tests required (schema simplified, triggers clarified)
+- Integration pattern: webhook → status check → Sheets operation → optional notification
+
+### Documentation Updates
+- Updated system architecture: webhook flows, schema changes, trigger logic
+- Updated codebase summary: order data structures, module line counts
+- This roadmap entry documents redesign decisions
 
 ---
 

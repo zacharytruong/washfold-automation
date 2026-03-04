@@ -2,41 +2,50 @@ import { describe, expect, test } from 'bun:test'
 import {
   APPSHEET_STATUSES,
   getAllPosStatusCodes,
+  getPosDeliveredCode,
   getPosStatusName,
   getPosWaitForPickupCode,
   POS_STATUSES,
+  shouldCancelAppSheetEntry,
   shouldCreateAppSheetEntry,
-  shouldMarkAppSheetDelivered,
+  shouldMarkDelivered,
   shouldUpdatePosStatus,
 } from '@/utils/status-mapper.ts'
 
 describe('status-mapper', () => {
   describe('shouldCreateAppSheetEntry', () => {
-    test('returns true for Confirmed (3)', () => {
-      expect(shouldCreateAppSheetEntry(POS_STATUSES.CONFIRMED)).toBe(true)
+    test('returns true for New (0)', () => {
+      expect(shouldCreateAppSheetEntry(POS_STATUSES.NEW)).toBe(true)
     })
 
     test('returns false for other statuses', () => {
-      expect(shouldCreateAppSheetEntry(POS_STATUSES.NEW)).toBe(false)
+      expect(shouldCreateAppSheetEntry(POS_STATUSES.CONFIRMED)).toBe(false)
       expect(shouldCreateAppSheetEntry(POS_STATUSES.SHIPPED)).toBe(false)
       expect(shouldCreateAppSheetEntry(POS_STATUSES.RECEIVED)).toBe(false)
-      expect(shouldCreateAppSheetEntry(POS_STATUSES.PACKAGING)).toBe(false)
     })
   })
 
-  describe('shouldMarkAppSheetDelivered', () => {
-    test('returns true for Shipped (11)', () => {
-      expect(shouldMarkAppSheetDelivered(POS_STATUSES.SHIPPED)).toBe(true)
-    })
-
-    test('returns true for Received (12)', () => {
-      expect(shouldMarkAppSheetDelivered(POS_STATUSES.RECEIVED)).toBe(true)
+  describe('shouldCancelAppSheetEntry', () => {
+    test('returns true for Cancelled (4)', () => {
+      expect(shouldCancelAppSheetEntry(POS_STATUSES.CANCELLED)).toBe(true)
     })
 
     test('returns false for other statuses', () => {
-      expect(shouldMarkAppSheetDelivered(POS_STATUSES.NEW)).toBe(false)
-      expect(shouldMarkAppSheetDelivered(POS_STATUSES.CONFIRMED)).toBe(false)
-      expect(shouldMarkAppSheetDelivered(POS_STATUSES.WAITING)).toBe(false)
+      expect(shouldCancelAppSheetEntry(POS_STATUSES.NEW)).toBe(false)
+      expect(shouldCancelAppSheetEntry(POS_STATUSES.CONFIRMED)).toBe(false)
+      expect(shouldCancelAppSheetEntry(POS_STATUSES.SHIPPED)).toBe(false)
+    })
+  })
+
+  describe('shouldMarkDelivered', () => {
+    test('returns true for Delivery status', () => {
+      expect(shouldMarkDelivered(APPSHEET_STATUSES.DELIVERY)).toBe(true)
+    })
+
+    test('returns false for other statuses', () => {
+      expect(shouldMarkDelivered(APPSHEET_STATUSES.STORAGE_READY)).toBe(false)
+      expect(shouldMarkDelivered(APPSHEET_STATUSES.ARRIVED)).toBe(false)
+      expect(shouldMarkDelivered(APPSHEET_STATUSES.DELIVERED)).toBe(false)
     })
   })
 
@@ -58,10 +67,17 @@ describe('status-mapper', () => {
     })
   })
 
+  describe('getPosDeliveredCode', () => {
+    test('returns RECEIVED status code (3)', () => {
+      expect(getPosDeliveredCode()).toBe(3)
+    })
+  })
+
   describe('APPSHEET_STATUSES', () => {
     test('has correct workflow statuses', () => {
       expect(APPSHEET_STATUSES.ARRIVED).toBe('Arrived')
       expect(APPSHEET_STATUSES.STORAGE_READY).toBe('Lưu kho / STORAGE')
+      expect(APPSHEET_STATUSES.DELIVERY).toBe('Delivery')
       expect(APPSHEET_STATUSES.DELIVERED).toBe('Delivered')
     })
   })
@@ -69,21 +85,20 @@ describe('status-mapper', () => {
   describe('getAllPosStatusCodes', () => {
     test('returns all POS status codes', () => {
       const codes = getAllPosStatusCodes()
-      expect(codes).toContain(0)
-      expect(codes).toContain(3)
-      expect(codes).toContain(8)
-      expect(codes).toContain(9)
-      expect(codes).toContain(11)
-      expect(codes).toContain(12)
-      expect(codes).toContain(20)
+      expect(codes).toContain(POS_STATUSES.NEW)       // 0
+      expect(codes).toContain(POS_STATUSES.CONFIRMED)  // 1
+      expect(codes).toContain(POS_STATUSES.SHIPPED)    // 2
+      expect(codes).toContain(POS_STATUSES.RECEIVED)   // 3
+      expect(codes).toContain(POS_STATUSES.WAITING)    // 9
     })
   })
 
   describe('getPosStatusName', () => {
     test('returns correct status names', () => {
       expect(getPosStatusName(0)).toBe('NEW')
-      expect(getPosStatusName(3)).toBe('CONFIRMED')
-      expect(getPosStatusName(11)).toBe('SHIPPED')
+      expect(getPosStatusName(1)).toBe('CONFIRMED')
+      expect(getPosStatusName(2)).toBe('SHIPPED')
+      expect(getPosStatusName(3)).toBe('RECEIVED')
     })
 
     test('returns UNKNOWN_code for unknown codes', () => {

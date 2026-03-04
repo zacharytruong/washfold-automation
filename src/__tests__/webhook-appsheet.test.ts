@@ -5,12 +5,14 @@ describe('appsheet-webhook-schema', () => {
   test('validates a correct payload', () => {
     const result = appsheetWebhookSchema.safeParse({
       order_number: 12345,
-      status: 'Storage / Ready',
+      status: 'Lưu kho / STORAGE',
+      phone: '0987654321',
     })
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.order_number).toBe('12345')
-      expect(result.data.status).toBe('Storage / Ready')
+      expect(result.data.status).toBe('Lưu kho / STORAGE')
+      expect(result.data.phone).toBe('0987654321')
     }
   })
 
@@ -22,6 +24,30 @@ describe('appsheet-webhook-schema', () => {
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.order_number).toBe('ORD-456')
+    }
+  })
+
+  test('validates Delivery status with phone', () => {
+    const result = appsheetWebhookSchema.safeParse({
+      order_number: '12345',
+      status: 'Delivery',
+      phone: '0987654321',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.status).toBe('Delivery')
+      expect(result.data.phone).toBe('0987654321')
+    }
+  })
+
+  test('accepts missing phone (optional field)', () => {
+    const result = appsheetWebhookSchema.safeParse({
+      order_number: '12345',
+      status: 'Delivery',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.phone).toBeUndefined()
     }
   })
 
