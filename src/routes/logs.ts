@@ -20,7 +20,7 @@ function parseLimit(raw: string | undefined): number {
 
 export function handleRecentLogs(c: Context): Response {
   const limit = parseLimit(c.req.query('limit'))
-  const logs = getRecentLogs(limit)
+  const logs = getRecentLogs(limit).toSorted((a, b) => b.id - a.id)
   return c.json({ logs, count: logs.length })
 }
 
