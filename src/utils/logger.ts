@@ -4,7 +4,7 @@
  */
 
 import { Database } from 'bun:sqlite'
-import { mkdirSync, existsSync } from 'node:fs'
+import { mkdirSync, existsSync, accessSync, constants } from 'node:fs'
 import { dirname } from 'node:path'
 
 export interface LogEntry {
@@ -35,6 +35,15 @@ export function initLogger(dbPath = process.env.DATA_DIR ? `${process.env.DATA_D
   if (dir !== '.' && !existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
   }
+
+  // Verify directory is writable (volume mount may override Dockerfile permissions)
+  try {
+    accessSync(dir, constants.W_OK)
+  } catch {
+    console.error(`[logger] Directory not writable: ${dir}, falling back to /tmp/logs.db`)
+    dbPath = '/tmp/logs.db'
+  }
+
   db = new Database(dbPath)
 
   db.run(`
