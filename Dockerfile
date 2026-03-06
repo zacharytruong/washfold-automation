@@ -14,8 +14,9 @@ COPY src/ src/
 # Create data directory for persistent volume (Railway mounts here)
 RUN mkdir -p /app/data && chown bun:bun /app/data
 
-# Run as non-root user (included in oven/bun image)
-USER bun
+# Copy entrypoint script (runs as root to fix volume perms, then drops to bun)
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Expose port
 EXPOSE 3000
@@ -24,5 +25,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD bun -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1))" || exit 1
 
-# Start server
-CMD ["bun", "run", "src/index.ts"]
+# Start via entrypoint (fixes volume permissions at runtime, then runs as bun user)
+ENTRYPOINT ["/app/entrypoint.sh"]

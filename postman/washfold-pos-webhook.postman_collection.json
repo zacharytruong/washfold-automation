@@ -1,0 +1,135 @@
+{
+  "info": {
+    "name": "Washfold POS Webhook",
+    "description": "Test collection for Pancake POS webhook endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "webhook_secret",
+      "value": "your-webhook-secret-here",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "POS Webhook - New Order (status 0)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"99991\",\n  \"type\": \"orders\",\n  \"event_type\": \"update\",\n  \"system_id\": 91,\n  \"status\": 0,\n  \"status_name\": \"new\",\n  \"total_price\": 194400,\n  \"total_discount\": 0,\n  \"shipping_fee\": 0,\n  \"cod\": 194400,\n  \"order_currency\": \"VND\",\n  \"bill_full_name\": \"My Nhuy\",\n  \"bill_phone_number\": \"4406661955\",\n  \"customer\": {\n    \"id\": \"693ace3e-84dd-4949-84ec-2c51ab6a5352\",\n    \"customer_id\": \"78eaa4e6-034d-4d21-8eb7-af9f3808564b\",\n    \"name\": \"Zach T\",\n    \"phone_numbers\": [\"0987654321\", \"4406661955\"],\n    \"emails\": [],\n    \"order_count\": 7,\n    \"current_debts\": 194400\n  },\n  \"shipping_address\": {\n    \"address\": \"21 Bui Vien\",\n    \"full_address\": \"21 Bui Vien, Phuong An Khanh, Ho Chi Minh\",\n    \"full_name\": \"My Nhuy\",\n    \"phone_number\": \"4406661955\",\n    \"commune_name\": \"Phuong An Khanh\",\n    \"province_name\": \"Ho Chi Minh\",\n    \"province_id\": \"84_VN129\",\n    \"country_code\": \"84\"\n  },\n  \"items\": [\n    {\n      \"id\": 11245888233,\n      \"product_id\": \"6a51b9fa-b873-4288-bfd7-f7632b1ebcff\",\n      \"variation_id\": \"6942e57e-cd69-4cee-80aa-45374eaa0e8a\",\n      \"quantity\": 1,\n      \"discount_each_product\": 0,\n      \"total_discount\": 0\n    }\n  ],\n  \"items_length\": 1,\n  \"total_quantity\": 1,\n  \"page\": {\n    \"id\": \"waba_293221153866535\",\n    \"name\": \"WASH&FOLD\",\n    \"username\": \"waba_84888824477\"\n  },\n  \"page_id\": \"waba_293221153866535\",\n  \"shop_id\": 1635934121,\n  \"account\": \"waba_293221153866535\",\n  \"account_name\": \"WASH&FOLD\",\n  \"order_sources\": \"-10\",\n  \"order_sources_name\": \"Whatsapp\",\n  \"conversation_id\": \"waba_293221153866535_14406661944\",\n  \"inserted_at\": \"2026-03-06T13:49:02.815244\",\n  \"updated_at\": \"2026-03-06T14:00:25.424875\",\n  \"status_history\": [\n    {\n      \"status\": 0,\n      \"old_status\": null,\n      \"updated_at\": \"2026-03-06T13:49:02\",\n      \"editor_id\": null,\n      \"name\": null\n    }\n  ],\n  \"botcake_info\": {\n    \"order_id\": \"938ME7GUI\",\n    \"request_id\": \"7ESQG29M9\"\n  },\n  \"order_link\": \"https://pos.pages.fm/shop/1635934121/order?order_id=90085038186240\",\n  \"assigning_seller\": {\n    \"id\": \"70ca0265-383c-4166-8ceb-08d58db1a6f7\",\n    \"name\": \"WF Bookings\",\n    \"avatar_url\": null,\n    \"email\": \"bookings@washfold.info\",\n    \"fb_id\": null,\n    \"phone_number\": null\n  },\n  \"assigning_seller_id\": \"70ca0265-383c-4166-8ceb-08d58db1a6f7\",\n  \"last_editor\": {\n    \"id\": \"70ca0265-383c-4166-8ceb-08d58db1a6f7\",\n    \"name\": \"WF Bookings\",\n    \"avatar_url\": null,\n    \"email\": \"bookings@washfold.info\",\n    \"fb_id\": null,\n    \"phone_number\": null\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/pos?secret={{webhook_secret}}",
+          "host": ["{{base_url}}"],
+          "path": ["webhook", "pos"],
+          "query": [
+            {
+              "key": "secret",
+              "value": "{{webhook_secret}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "POS Webhook - Cancelled Order (status 4)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"99991\",\n  \"type\": \"orders\",\n  \"event_type\": \"update\",\n  \"system_id\": 91,\n  \"status\": 4,\n  \"status_name\": \"cancelled\",\n  \"total_price\": 194400,\n  \"total_discount\": 0,\n  \"shipping_fee\": 0,\n  \"cod\": 194400,\n  \"order_currency\": \"VND\",\n  \"bill_full_name\": \"My Nhuy\",\n  \"bill_phone_number\": \"4406661955\",\n  \"customer\": {\n    \"id\": \"693ace3e-84dd-4949-84ec-2c51ab6a5352\",\n    \"customer_id\": \"78eaa4e6-034d-4d21-8eb7-af9f3808564b\",\n    \"name\": \"Zach T\",\n    \"phone_numbers\": [\"0987654321\", \"4406661955\"],\n    \"emails\": [],\n    \"order_count\": 7,\n    \"current_debts\": 194400\n  },\n  \"shipping_address\": {\n    \"address\": \"21 Bui Vien\",\n    \"full_address\": \"21 Bui Vien, Phuong An Khanh, Ho Chi Minh\",\n    \"full_name\": \"My Nhuy\",\n    \"phone_number\": \"4406661955\",\n    \"commune_name\": \"Phuong An Khanh\",\n    \"province_name\": \"Ho Chi Minh\",\n    \"province_id\": \"84_VN129\",\n    \"country_code\": \"84\"\n  },\n  \"items\": [\n    {\n      \"id\": 11245888233,\n      \"product_id\": \"6a51b9fa-b873-4288-bfd7-f7632b1ebcff\",\n      \"variation_id\": \"6942e57e-cd69-4cee-80aa-45374eaa0e8a\",\n      \"quantity\": 1,\n      \"discount_each_product\": 0,\n      \"total_discount\": 0\n    }\n  ],\n  \"items_length\": 1,\n  \"total_quantity\": 1,\n  \"page\": {\n    \"id\": \"waba_293221153866535\",\n    \"name\": \"WASH&FOLD\",\n    \"username\": \"waba_84888824477\"\n  },\n  \"page_id\": \"waba_293221153866535\",\n  \"shop_id\": 1635934121,\n  \"account\": \"waba_293221153866535\",\n  \"account_name\": \"WASH&FOLD\",\n  \"order_sources\": \"-10\",\n  \"order_sources_name\": \"Whatsapp\",\n  \"conversation_id\": \"waba_293221153866535_14406661944\",\n  \"inserted_at\": \"2026-03-06T13:49:02.815244\",\n  \"updated_at\": \"2026-03-06T15:30:00.000000\",\n  \"status_history\": [\n    {\n      \"status\": 0,\n      \"old_status\": null,\n      \"updated_at\": \"2026-03-06T13:49:02\",\n      \"editor_id\": null,\n      \"name\": null\n    },\n    {\n      \"status\": 4,\n      \"old_status\": 0,\n      \"updated_at\": \"2026-03-06T15:30:00\",\n      \"editor_id\": \"70ca0265-383c-4166-8ceb-08d58db1a6f7\",\n      \"name\": \"WF Bookings\"\n    }\n  ],\n  \"botcake_info\": {\n    \"order_id\": \"938ME7GUI\",\n    \"request_id\": \"7ESQG29M9\"\n  },\n  \"order_link\": \"https://pos.pages.fm/shop/1635934121/order?order_id=90085038186240\",\n  \"assigning_seller\": {\n    \"id\": \"70ca0265-383c-4166-8ceb-08d58db1a6f7\",\n    \"name\": \"WF Bookings\",\n    \"avatar_url\": null,\n    \"email\": \"bookings@washfold.info\",\n    \"fb_id\": null,\n    \"phone_number\": null\n  },\n  \"assigning_seller_id\": \"70ca0265-383c-4166-8ceb-08d58db1a6f7\",\n  \"last_editor\": {\n    \"id\": \"70ca0265-383c-4166-8ceb-08d58db1a6f7\",\n    \"name\": \"WF Bookings\",\n    \"avatar_url\": null,\n    \"email\": \"bookings@washfold.info\",\n    \"fb_id\": null,\n    \"phone_number\": null\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/pos?secret={{webhook_secret}}",
+          "host": ["{{base_url}}"],
+          "path": ["webhook", "pos"],
+          "query": [
+            {
+              "key": "secret",
+              "value": "{{webhook_secret}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "POS Webhook - No Secret (401 test)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"99991\",\n  \"type\": \"orders\",\n  \"event_type\": \"update\",\n  \"system_id\": 91,\n  \"status\": 0,\n  \"status_name\": \"new\",\n  \"total_price\": 194400,\n  \"total_discount\": 0,\n  \"shipping_fee\": 0,\n  \"cod\": 194400,\n  \"order_currency\": \"VND\",\n  \"bill_full_name\": \"My Nhuy\",\n  \"bill_phone_number\": \"4406661955\",\n  \"customer\": {\n    \"id\": \"693ace3e-84dd-4949-84ec-2c51ab6a5352\",\n    \"customer_id\": \"78eaa4e6-034d-4d21-8eb7-af9f3808564b\",\n    \"name\": \"Zach T\",\n    \"phone_numbers\": [\"0987654321\"],\n    \"emails\": [],\n    \"order_count\": 7,\n    \"current_debts\": 0\n  },\n  \"shipping_address\": {\n    \"address\": null,\n    \"full_address\": null,\n    \"full_name\": null,\n    \"phone_number\": null,\n    \"commune_name\": null,\n    \"province_name\": null,\n    \"province_id\": null,\n    \"country_code\": null\n  },\n  \"items\": [\n    {\n      \"id\": 1,\n      \"product_id\": \"prod-1\",\n      \"variation_id\": \"var-1\",\n      \"quantity\": 1,\n      \"discount_each_product\": 0,\n      \"total_discount\": 0\n    }\n  ],\n  \"items_length\": 1,\n  \"total_quantity\": 1,\n  \"page\": {\n    \"id\": \"page-1\",\n    \"name\": \"WASH&FOLD\",\n    \"username\": \"washfold\"\n  },\n  \"page_id\": \"page-1\",\n  \"shop_id\": 1635934121,\n  \"account\": \"page-1\",\n  \"account_name\": \"WASH&FOLD\",\n  \"order_sources\": \"-10\",\n  \"order_sources_name\": \"Whatsapp\",\n  \"conversation_id\": \"conv-1\",\n  \"inserted_at\": \"2026-03-06T13:49:02.815244\",\n  \"updated_at\": \"2026-03-06T13:49:02.815244\",\n  \"status_history\": [\n    {\n      \"status\": 0,\n      \"old_status\": null,\n      \"updated_at\": \"2026-03-06T13:49:02\",\n      \"editor_id\": null,\n      \"name\": null\n    }\n  ],\n  \"botcake_info\": {\n    \"order_id\": \"test-1\",\n    \"request_id\": \"req-1\"\n  },\n  \"order_link\": \"https://pos.pages.fm/shop/1635934121/order?order_id=1\",\n  \"assigning_seller\": null,\n  \"assigning_seller_id\": null,\n  \"last_editor\": null\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/pos",
+          "host": ["{{base_url}}"],
+          "path": ["webhook", "pos"]
+        }
+      }
+    },
+    {
+      "name": "POS Webhook - Invalid Payload (400 test)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"invalid\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/pos?secret={{webhook_secret}}",
+          "host": ["{{base_url}}"],
+          "path": ["webhook", "pos"],
+          "query": [
+            {
+              "key": "secret",
+              "value": "{{webhook_secret}}"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
