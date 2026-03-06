@@ -85,11 +85,11 @@ describe('status-mapper', () => {
   describe('getAllPosStatusCodes', () => {
     test('returns all POS status codes', () => {
       const codes = getAllPosStatusCodes()
-      expect(codes).toContain(POS_STATUSES.NEW)       // 0
-      expect(codes).toContain(POS_STATUSES.CONFIRMED)  // 1
-      expect(codes).toContain(POS_STATUSES.SHIPPED)    // 2
-      expect(codes).toContain(POS_STATUSES.RECEIVED)   // 3
-      expect(codes).toContain(POS_STATUSES.WAITING)    // 9
+      expect(codes).toContain(POS_STATUSES.NEW) // 0
+      expect(codes).toContain(POS_STATUSES.CONFIRMED) // 1
+      expect(codes).toContain(POS_STATUSES.SHIPPED) // 2
+      expect(codes).toContain(POS_STATUSES.RECEIVED) // 3
+      expect(codes).toContain(POS_STATUSES.WAITING) // 9
     })
   })
 
