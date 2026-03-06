@@ -4,6 +4,8 @@
  */
 
 import { Database } from 'bun:sqlite'
+import { mkdirSync, existsSync } from 'node:fs'
+import { dirname } from 'node:path'
 
 export interface LogEntry {
   id: number
@@ -29,6 +31,10 @@ let db: Database | null = null
  */
 /** Default path: /app/data/logs.db in production (Railway volume), local fallback */
 export function initLogger(dbPath = process.env.DATA_DIR ? `${process.env.DATA_DIR}/logs.db` : 'logs.db'): void {
+  const dir = dirname(dbPath)
+  if (dir !== '.' && !existsSync(dir)) {
+    mkdirSync(dir, { recursive: true })
+  }
   db = new Database(dbPath)
 
   db.run(`
