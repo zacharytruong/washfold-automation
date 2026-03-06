@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-volumes = ["/app/data"] # Mount persistent volume
+volumes = [ "/app/data" ] # Mount persistent volume
 
 [deploy]
 healthcheckPath = "/health"

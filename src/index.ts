@@ -11,14 +11,9 @@ import { handleAppSheetWebhook } from '@/routes/webhook-appsheet.ts'
 import { handlePosWebhook } from '@/routes/webhook-pos.ts'
 import { logEvent } from '@/utils/logger.ts'
 
-// Validate config at startup in production (fail fast)
-if (!isDev()) {
-  validateConfig()
-}
-
 const app = new Hono()
 
-// Health check
+// Health check - always available, even during config validation
 app.get('/', c => c.json({ status: 'ok', service: 'washfold-automation' }))
 app.get('/health', c => c.json({ status: 'healthy', timestamp: new Date().toISOString() }))
 
@@ -46,6 +41,22 @@ app.onError((err, c) => {
 
 const port = getPort()
 console.log(`Server starting on port ${port}`)
+
+// Validate config after server starts (non-blocking, allows health checks to work)
+if (!isDev()) {
+  try {
+    validateConfig()
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('⚠ Config validation failed:', message)
+    logEvent({
+      eventType: 'startup:config-error',
+      payload: { error: message },
+      status: 'warning',
+    })
+  }
+}
 
 export default {
   port,
