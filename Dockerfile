@@ -3,7 +3,7 @@ FROM oven/bun:1.3.4
 WORKDIR /app
 
 # Copy package files first for layer caching
-COPY package.json bun.lock ./
+COPY package.json bun.lock tsconfig.json ./
 
 # Install dependencies
 RUN bun install --frozen-lockfile --production
